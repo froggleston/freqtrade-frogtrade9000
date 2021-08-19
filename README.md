@@ -19,7 +19,12 @@ If you don't have freqtrade, get it [here](https://github.com/freqtrade/freqtrad
 
 ### Installation
 
+#### Existing Freqtrade install
 Once cloned, copy the script files into your freqtrade/scripts folder. That's it!
+
+#### Standalone
+You'll need the rest_client.py file from the core freqtrade repo and place it in the same folder you put these files. Grab it from here:
+https://github.com/freqtrade/freqtrade/blob/stable/scripts/rest_client.py
 
 ### Running
 
