@@ -36,9 +36,9 @@ To specify a config use `-c`:
 
 > ./scripts/frogtrade9000.py -c my-other.config.json
 
-The nice thing about frogtrade9000 is that you can monitor multiple bots and strategies. If you run multiple bots with different IPs/ports but the same login info, then supply a single config, and then use the `-s` flag to manually specify the IP and ports of the freqtrade API servers separated by commas:
+The nice thing about frogtrade9000 is that you can monitor multiple bots and strategies. If you run multiple bots with different IPs/ports use the `-s` flag to manually specify your own botname, the IP and ports and any username/password info of the freqtrade API servers separated by commas:
 
-> ./scripts/frogtrade9000.py my-other.config.json -s 192.168.1.69:8081,127.0.0.1:8082,my.other.server.com:8083
+> ./scripts/frogtrade9000.py -s \[bot1\]user:pass@192.168.1.69:8081,\[bot2\]user:pass@127.0.0.1:8082
 
 ### Using frogtrade9000
 
