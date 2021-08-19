@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 
 """
-███████╗██████╗  ██████╗  ██████╗████████╗██████╗  █████╗ ██████╗ ███████╗ █████╗  ██████╗  ██████╗  ██████╗
+███████╗██████╗  ██████╗  ██████╗████████╗██████╗  █████╗ ██████╗ ███████╗ █████╗  ██████╗  ██████╗  ██████╗ 
 ██╔════╝██╔══██╗██╔═══██╗██╔════╝╚══██╔══╝██╔══██╗██╔══██╗██╔══██╗██╔════╝██╔══██╗██╔═████╗██╔═████╗██╔═████╗
 █████╗  ██████╔╝██║   ██║██║  ███╗  ██║   ██████╔╝███████║██║  ██║█████╗  ╚██████║██║██╔██║██║██╔██║██║██╔██║
 ██╔══╝  ██╔══██╗██║   ██║██║   ██║  ██║   ██╔══██╗██╔══██║██║  ██║██╔══╝   ╚═══██║████╔╝██║████╔╝██║████╔╝██║
 ██║     ██║  ██║╚██████╔╝╚██████╔╝  ██║   ██║  ██║██║  ██║██████╔╝███████╗ █████╔╝╚██████╔╝╚██████╔╝╚██████╔╝
-╚═╝     ╚═╝  ╚═╝ ╚═════╝  ╚═════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚═════╝ ╚══════╝ ╚════╝  ╚═════╝  ╚═════╝  ╚═════╝
+╚═╝     ╚═╝  ╚═╝ ╚═════╝  ╚═════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚═════╝ ╚══════╝ ╚════╝  ╚═════╝  ╚═════╝  ╚═════╝ 
 
 A command-line freqtrade REST API client
 
@@ -15,14 +15,14 @@ Author: froggleston [https://github.com/froggleston]
 Donations:
     BTC: bc1qxdfju58lgrxscrcfgntfufx5j7xqxpdufwm9pv
     ETH: 0x581365Cff1285164E6803C4De37C37BbEaF9E5Bb
-
+    
 Conception Date: August 2021
 
 """
 
 from __future__ import print_function, unicode_literals
 
-import json, random, sys, os, re, argparse
+import json, random, sys, os, re, argparse, traceback
 from datetime import datetime
 from time import sleep
 
@@ -54,6 +54,8 @@ trades_config = {}
 ## keyboard entry on linux won't work unless you're sudo
 suderp = (sys.platform != "linux") or (sys.platform == "linux" and os.geteuid() == 0)
 
+urlre = "^\[([a-zA-Z0-9]+)\]*([a-z0-9\-._~%!$&'()*+,;=]+)?:([a-z0-9\-._~%!$&'()*+,;=]+)@?([a-z0-9\-._~%]+|\[[a-f0-9:.]+\]|\[v[a-f0-9][a-z0-9\-._~%!$&'()*+,;=:]+\]):([0-9]+)?"
+
 if suderp:
     import keyboard
 
@@ -77,29 +79,35 @@ if suderp:
         if key.name == "esc":
             os._exit(0)
 
-def setup_client(name=None, config_path="config.json", url=None, port=None):
-    if config_path is None:
-        config_path = "config.json"
-        
-    config = ftrc.load_config(config_path)
-
+def setup_client(name=None, config_path=None, url=None, port=None, username=None, password=None):
     if url is None:
+        config = ftrc.load_config(config_path)
         url = config.get('api_server', {}).get('listen_ip_address', '127.0.0.1')
-    
-    if port is None:
         port = config.get('api_server', {}).get('listen_port', '8080')
-    
+        
+        if username is None and password is None:
+            username = config.get('api_server', {}).get('username')
+            password = config.get('api_server', {}).get('password')
+    else:
+        if config_path is not None:
+            config = ftrc.load_config(config_path)
+            
+            if username is None and password is None:
+                username = config.get('api_server', {}).get('username')
+                password = config.get('api_server', {}).get('password')
+
     if name is None:
         name = f"{url}:{port}"
     
-    username = config.get('api_server', {}).get('username')
-    password = config.get('api_server', {}).get('password')
-
     server_url = f"http://{url}:{port}"
 
     client = ftrc.FtRestClient(server_url, username, password)
     
-    return client
+    c = client.version()
+    if "detail" in c.keys() and (c["detail"] == 'Unauthorized'):
+        raise Exception(f"Could not connect to bot [{url}:{port}]: Unauthorised")
+
+    return name, client
 
 def make_layout() -> Layout:
     """Define the layout."""
@@ -288,32 +296,40 @@ def main():
     parser.add_argument("-s", "--servers", nargs='?', help="If you have multiple servers or your config differs from the REST API server URLs, specify each one here with [<name>@]<url>:<port> separated by a comma, e.g. mybotname@my.server:8081,my.server:8082,192.168.0.69:8083")
     args = parser.parse_args()
     
-    #if args.config is None:
-    #    raise Exception("Please supply a config file with -c")
+    client_dict = {}
         
     config = args.config
-    
-    client_dict = {}
-    
+
     if args.servers is not None:
         slist = args.servers.split(",")
         for s in slist:
-            botsplit = s.split("@")
-            if len(botsplit) == 2:
-                botname = botsplit[0]
-                url = botsplit[1].split(":")[0]
-                port = botsplit[1].split(":")[1]
+            m = re.match(urlre, s)
+            if m:
+                botname = m.group(1)
+                suser = m.group(2)
+                spass = m.group(3)
+                url = m.group(4)
+                port = m.group(5)
                 
-                client = setup_client(name=botname, config_path=args.config, url=url, port=port)
-                client_dict[botname] = client
-            elif len(botsplit) > 2:
-                raise Exception("Cannot parse server option. Please use name_to_give_your_bot@servername.com:port")
+                if url is None or port is None:
+                    raise Exception("Cannot get URL and port from server option. Please use [name]user:pass@servername:port")
+                
+                try:
+                    if config is not None:
+                        name, client = setup_client(name=botname, url=url, port=port, username=suser, password=spass, config_path=config)
+                    else:
+                        name, client = setup_client(name=botname, url=url, port=port, username=suser, password=spass)
+                    client_dict[name] = client
+                except Exception as e:
+                    raise RuntimeError('Cannot create freqtrade client') from e
             else:
-                url = s.split(":")[0]
-                port = s.split(":")[1]
-                
-                client = setup_client(config_path=args.config, url=url, port=port)
-                client_dict[s] = client
+                raise Exception("Cannot parse server option. Please use [name]user:pass@servername:port")
+    elif config is not None:
+        try:
+            name, client = setup_client(config_path=config)
+            client_dict[name] = client
+        except Exception as e:
+            raise RuntimeError('Cannot create freqtrade client') from e
     
     if not client_dict:
         raise Exception("No valid clients specified in config or --servers option")
@@ -360,4 +376,6 @@ if __name__ == "__main__":
         main()
   
     except Exception as e:
+        traceback.print_exc()
         print("You got frogged: ", e)
+        
