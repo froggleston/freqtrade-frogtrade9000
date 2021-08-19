@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 
 from __future__ import print_function, unicode_literals
 
@@ -57,7 +57,7 @@ if suderp:
         if key.name == "esc":
             os._exit(0)
 
-def setup_client(config_path="config.json", url=None, port=None):
+def setup_client(name=None, config_path="config.json", url=None, port=None):
     if config_path is None:
         config_path = "config.json"
         
@@ -68,6 +68,9 @@ def setup_client(config_path="config.json", url=None, port=None):
     
     if port is None:
         port = config.get('api_server', {}).get('listen_port', '8080')
+    
+    if name is None:
+        name = f"{url}:{port}"
     
     username = config.get('api_server', {}).get('username')
     password = config.get('api_server', {}).get('password')
@@ -262,7 +265,7 @@ def main():
     parser = argparse.ArgumentParser()
     
     parser.add_argument("-c", "--config", nargs='?', help="Config to parse")
-    parser.add_argument("-s", "--servers", nargs='?', help="If you have multiple servers or your config differs from the REST API server URLs, specify each one here with <url>:<port> separated by a comma, e.g. my.server:8081,my.server:8082,192.168.0.69:8083")
+    parser.add_argument("-s", "--servers", nargs='?', help="If you have multiple servers or your config differs from the REST API server URLs, specify each one here with [<name>@]<url>:<port> separated by a comma, e.g. mybotname@my.server:8081,my.server:8082,192.168.0.69:8083")
     args = parser.parse_args()
     
     #if args.config is None:
@@ -275,11 +278,22 @@ def main():
     if args.servers is not None:
         slist = args.servers.split(",")
         for s in slist:
-            url = s.split(":")[0]
-            port = s.split(":")[1]
-            
-            client = setup_client(config_path=args.config, url=url, port=port)
-            client_dict[s] = client
+            botsplit = s.split("@")
+            if len(botsplit) == 2:
+                botname = botsplit[0]
+                url = botsplit[1].split(":")[0]
+                port = botsplit[1].split(":")[1]
+                
+                client = setup_client(name=botname, config_path=args.config, url=url, port=port)
+                client_dict[botname] = client
+            elif len(botsplit) > 2:
+                raise Exception("Cannot parse server option. Please use name_to_give_your_bot@servername.com:port")
+            else:
+                url = s.split(":")[0]
+                port = s.split(":")[1]
+                
+                client = setup_client(config_path=args.config, url=url, port=port)
+                client_dict[s] = client
     
     if not client_dict:
         raise Exception("No valid clients specified in config or --servers option")
