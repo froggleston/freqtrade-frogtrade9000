@@ -47,9 +47,11 @@ from rich.text import Text
 
 header_size = 3
 
-informative_pair = "BTC/USDT"
-chart_config = {"current_pair":informative_pair}
+informative_coin="BTC"
+stake_coin="USDT"
+
 trades_config = {}
+chart_config = {}
 
 ## keyboard entry on linux won't work unless you're sudo
 suderp = (sys.platform != "linux") or (sys.platform == "linux" and os.geteuid() == 0)
@@ -154,7 +156,8 @@ def trades_summary(client_dict) -> Table:
     for n, cl in client_dict.items():
         t = cl.profit()
         pcc = int(t['profit_closed_coin'])
-        coin = t['best_pair'].split('/')[1]
+        # coin = t['best_pair'].split('/')[1]
+        coin = stake_coin
         
         table.add_row(
             f"{summ}",
@@ -294,12 +297,25 @@ def main():
     
     parser.add_argument("-c", "--config", nargs='?', help="Config to parse")
     parser.add_argument("-s", "--servers", nargs='?', help="If you have multiple servers or your config differs from the REST API server URLs, specify each one here with [<name>@]<url>:<port> separated by a comma, e.g. mybotname@my.server:8081,my.server:8082,192.168.0.69:8083")
+    parser.add_argument("-t", "--stake_coin", nargs="?", help="Stake coin. Default: USDT")
+    parser.add_argument("-i", "--informative_coin", nargs="?", help="Informative coin. Default: BTC")
     args = parser.parse_args()
     
     client_dict = {}
         
     config = args.config
-
+    
+    stake_coin = "USDT"
+    if args.stake_coin is not None:
+        stake_coin = args.stake_coin
+    
+    informative_coin = "BTC"
+    if args.informative_coin is not None:
+        informative_coin = args.informative_coin    
+    
+    informative_pair = f"{informative_coin}/{stake_coin}"
+    chart_config['current_pair'] = informative_pair
+    
     if args.servers is not None:
         slist = args.servers.split(",")
         for s in slist:
