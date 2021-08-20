@@ -87,7 +87,7 @@ class BasicCharts():
             profitseries.append(profit)
         
         # print the chart
-        outstr = plot_str(plot(profitseries[-width:], {'height': height, 'min': 0}))
+        outstr = plot_str(plot(profitseries[-width:], {'height': height, 'min': min(profitseries)}))
         
         return outstr
     
