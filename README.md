@@ -53,3 +53,7 @@ There's not much to say. It uses the Rich library to provide a console view, so 
 - The display flickers on some terminals, e.g. git bash. I can't do anything about that.
 - The exception handling is lame. This needs improvement.
 - A JSON config file would help with more granular bot use and general tool settings, e.g. informative pair as default. I'll get round to this soon.
+
+### Acknowledgements
+
+The very cool ASCII charts are from https://github.com/kroitor/asciichart
