@@ -2,16 +2,17 @@
 # -*- coding: utf-8 -*-
 
 """
-███████╗██████╗  ██████╗  ██████╗████████╗██████╗  █████╗ ██████╗ ███████╗ █████╗  ██████╗  ██████╗  ██████╗
+███████╗██████╗  ██████╗  ██████╗████████╗██████╗  █████╗ ██████╗ ███████╗ █████╗  ██████╗  ██████╗  ██████╗ 
 ██╔════╝██╔══██╗██╔═══██╗██╔════╝╚══██╔══╝██╔══██╗██╔══██╗██╔══██╗██╔════╝██╔══██╗██╔═████╗██╔═████╗██╔═████╗
 █████╗  ██████╔╝██║   ██║██║  ███╗  ██║   ██████╔╝███████║██║  ██║█████╗  ╚██████║██║██╔██║██║██╔██║██║██╔██║
 ██╔══╝  ██╔══██╗██║   ██║██║   ██║  ██║   ██╔══██╗██╔══██║██║  ██║██╔══╝   ╚═══██║████╔╝██║████╔╝██║████╔╝██║
 ██║     ██║  ██║╚██████╔╝╚██████╔╝  ██║   ██║  ██║██║  ██║██████╔╝███████╗ █████╔╝╚██████╔╝╚██████╔╝╚██████╔╝
-╚═╝     ╚═╝  ╚═╝ ╚═════╝  ╚═════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚═════╝ ╚══════╝ ╚════╝  ╚═════╝  ╚═════╝  ╚═════╝
+╚═╝     ╚═╝  ╚═╝ ╚═════╝  ╚═════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚═════╝ ╚══════╝ ╚════╝  ╚═════╝  ╚═════╝  ╚═════╝ 
 
 A command-line freqtrade REST API client
 
 Author: froggleston [https://github.com/froggleston]
+Licence: MIT [https://github.com/froggleston/freqtrade-frogtrade9000/blob/main/LICENSE]
 
 Donations:
     BTC: bc1qxdfju58lgrxscrcfgntfufx5j7xqxpdufwm9pv
@@ -119,13 +120,23 @@ def make_layout() -> Layout:
     layout.split(
         Layout(name="header", size=header_size),
         Layout(name="main", ratio=1),
-        # Layout(name="footer", size=footer_size),
+        Layout(name="footer", size=1),
     )
     layout["main"].split_row(
-        Layout(name="side", minimum_size=100),
+        Layout(name="side", minimum_size=104),
         Layout(name="body", ratio=2),
     )
-    layout["side"].split(Layout(name="box1"), Layout(name="box2"), Layout(name="box3"), Layout(name="box4"))
+    layout["footer"].split_row(
+        Layout(name="footer_left"),
+        Layout(name="footer_right")
+    )
+
+    layout["side"].split(
+        Layout(name="open", ratio=2, minimum_size=8),
+        Layout(name="closed", ratio=2, minimum_size=7),
+        Layout(name="summary"),
+        Layout(name="daily", size=15))
+
     layout["body"].split(Layout(name="chart1"), Layout(name="chart2"))
     return layout
 
@@ -185,7 +196,7 @@ def open_trades_table(client_dict) -> Table:
     table.add_column("Pair", style="magenta", no_wrap=True)
     table.add_column("Profit", justify="right")
     table.add_column("Dur.", justify="right")
-    
+
     current_time = datetime.now()
     fmt = "%Y-%m-%d %H:%M:%S"
     
@@ -195,15 +206,31 @@ def open_trades_table(client_dict) -> Table:
     for n, cl in client_dict.items():
         trades = cl.status()
         for t in trades:
+            if 'buy_tag' in t.keys():
+                if tradenum == 1:
+                    table.add_column("Buy Tag", justify="right")
+
             ttime = datetime.strptime(t['open_date'], fmt)
-            table.add_row(
-                f"{tradenum}",
-                f"{n}",
-                f"{t['strategy']}",
-                f"{t['pair']}",
-                f"[red]{t['profit_pct']}" if t['profit_pct'] <= 0 else f"[green]{t['profit_pct']}",
-                f"{str(current_time-ttime).split('.')[0]}"
-            )
+
+            if 'buy_tag' in t.keys():
+                table.add_row(
+                    f"{tradenum}",
+                    f"{n}",
+                    f"{t['strategy']}",
+                    f"{t['pair']}",
+                    f"[red]{t['profit_pct']}" if t['profit_pct'] <= 0 else f"[green]{t['profit_pct']}",
+                    f"{str(current_time-ttime).split('.')[0]}",
+                    f"{t['buy_tag']}"
+                )
+            else:
+                table.add_row(
+                    f"{tradenum}",
+                    f"{n}",
+                    f"{t['strategy']}",
+                    f"{t['pair']}",
+                    f"[red]{t['profit_pct']}" if t['profit_pct'] <= 0 else f"[green]{t['profit_pct']}",
+                    f"{str(current_time-ttime).split('.')[0]}"
+                )
             
             tmap[str(tradenum)] = t['pair']
             
@@ -224,6 +251,7 @@ def closed_trades_table(client_dict) -> Table:
     table.add_column("Profit %", justify="right")
     table.add_column("Profit", justify="right")
     table.add_column("Dur.", justify="right")
+    table.add_column("Sell", justify="right")
     
     fmt = "%Y-%m-%d %H:%M:%S"
     
@@ -242,7 +270,8 @@ def closed_trades_table(client_dict) -> Table:
                 f"{t['pair']}",
                 f"[red]{t['profit_pct']}" if t['profit_pct'] <= 0 else f"[green]{t['profit_pct']}",
                 f"[red]{rpfta}" if rpfta <= 0 else f"[green]{rpfta}",
-                f"{str(ctime-otime).split('.')[0]}"
+                f"{str(ctime-otime).split('.')[0]}",
+                f"{t['sell_reason']}"
             )
     
     return table
@@ -259,7 +288,7 @@ def daily_profit_table(client_dict) -> Table:
     dailydict = {}
     
     for n, cl in client_dict.items():
-        t = cl.daily(days=9)
+        t = cl.daily(days=8)
         for day in t['data']:
             if day['date'] not in dailydict.keys():
                 dailydict[day['date']] = [day['date'], f"{round(float(day['abs_profit']),2)} {t['stake_currency']}", f"{day['trade_count']}"]
@@ -356,7 +385,7 @@ def main():
     console = Console()
     cdims = console.size
     ch = int(round(cdims.height/2)-header_size)
-    cw = int(round(cdims.width/2))
+    cw = int(round(cdims.width/2))-4
 
     pc = bc.BasicCharts(symbol=chart_config['current_pair'], timeframe="5m", limit=cw)
     
@@ -364,10 +393,12 @@ def main():
     layout["header"].update(Header())
     layout["chart1"].update(Panel(Status("Loading...", spinner="line")))
     layout["chart2"].update(Panel(Status("Loading...", spinner="line")))
-    layout["box1"].update(Panel(Status("Loading...", spinner="line"), title="Open Trades", border_style="green"))
-    layout["box2"].update(Panel(Status("Loading...", spinner="line"), title="Trades Summary", border_style="red"))
-    layout["box3"].update(Panel(Status("Loading...", spinner="line"), title="Daily Profit", border_style="yellow"))
-    layout["box4"].update(Panel(Status("Loading...", spinner="line"), title="Closed Trades", border_style="blue"))
+    layout["open"].update(Panel(Status("Loading...", spinner="line"), title="Open Trades", border_style="green"))
+    layout["summary"].update(Panel(Status("Loading...", spinner="line"), title="Trades Summary", border_style="red"))
+    layout["daily"].update(Panel(Status("Loading...", spinner="line"), title="Daily Profit", border_style="yellow"))
+    layout["closed"].update(Panel(Status("Loading...", spinner="line"), title="Closed Trades", border_style="blue"))
+    layout["footer_left"].update("Status: Loading...")
+    layout["footer_right"].update(Text("Written by @froggleston [https://github.com/froggleston]", justify="right"))
 
     with Live(layout, refresh_per_second=1, screen=True):
         if suderp:
@@ -376,17 +407,28 @@ def main():
         while True:
             cdims = console.size
             ch = int(round(cdims.height/2)-header_size)
-            cw = int(round(cdims.width/2))
+            cw = int(round(cdims.width/2))-4
             
-            spc = pair_chart(pc, height=ch-4, width=cw)
-            ppc = profit_chart(pc, client_dict[chart_config['current_summary']], height=ch-4, width=cw)
-                               
-            layout["chart1"].update(Panel(spc[1], title=f"{spc[0]} [{pc.get_timeframe()}]"))
-            layout["chart2"].update(Panel(ppc, title=f"{chart_config['current_summary']} Cumulative Profit"))
-            layout["box1"].update(Panel(open_trades_table(client_dict), title="Open Trades", border_style="green"))
-            layout["box2"].update(Panel(trades_summary(client_dict), title="Trades Summary", border_style="red"))
-            layout["box3"].update(Panel(daily_profit_table(client_dict), title="Daily Profit", border_style="yellow"))
-            layout["box4"].update(Panel(closed_trades_table(client_dict), title="Closed Trades", border_style="blue"))
+
+            try:
+                spc = pair_chart(pc, height=ch-4, width=cw)
+                ppc = profit_chart(pc, client_dict[chart_config['current_summary']], height=ch-4, width=cw)
+
+                layout["chart1"].update(Panel(spc[1], title=f"{spc[0]} [{pc.get_timeframe()}]"))
+                layout["chart2"].update(Panel(ppc, title=f"{chart_config['current_summary']} Cumulative Profit"))
+
+                layout["open"].update(Panel(open_trades_table(client_dict), title="Open Trades", border_style="green"))
+
+                layout["summary"].size = 6+len(client_dict.items())
+                layout["summary"].update(Panel(trades_summary(client_dict), title="Trades Summary", border_style="red", height=6+len(client_dict.items())))
+
+                layout["daily"].update(Panel(daily_profit_table(client_dict), title="Daily Profit", border_style="yellow", height=14))
+                layout["closed"].update(Panel(closed_trades_table(client_dict), title="Closed Trades", border_style="blue"))
+
+                layout["footer_left"].update("[green] OK")
+            except Exception as e:
+                layout["footer_left"].update(f"[red] ERROR: {e}")
+
     
 if __name__ == "__main__":
     try:
