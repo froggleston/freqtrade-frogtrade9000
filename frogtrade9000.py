@@ -314,7 +314,7 @@ def daily_profit_table(client_dict) -> Table:
     
     return table
 
-def pair_chart(basic_chart, height=20, width=120, limit=None, timeframe=None):
+def pair_chart(basic_chart, height=20, width=120, limit=None, timeframe=None, basic_symbols=False):
     basic_chart.set_symbol(chart_config['current_pair'])
     if limit is not None:
         basic_chart.set_limit(limit)
@@ -322,13 +322,13 @@ def pair_chart(basic_chart, height=20, width=120, limit=None, timeframe=None):
     if timeframe is not None:
         basic_chart.set_timeframe(timeframe)
         
-    return (chart_config['current_pair'], basic_chart.get_chart_str(height=height, width=width))
+    return (chart_config['current_pair'], basic_chart.get_chart_str(height=height, width=width, basic_symbols=basic_symbols))
     
-def profit_chart(basic_chart, client, height=20, width=120, limit=None):
+def profit_chart(basic_chart, client, height=20, width=120, limit=None, basic_symbols=False):
     t = client.trades()['trades']
     if limit is not None:
         basic_chart.set_limit(limit)
-    return basic_chart.get_profit_str(t, height=height, width=width)
+    return basic_chart.get_profit_str(t, height=height, width=width, basic_symbols=basic_symbols)
 
 def search_box():
     cdims = console.size
@@ -343,6 +343,8 @@ def main():
     parser.add_argument("-s", "--servers", nargs='?', help="If you have multiple servers or your config differs from the REST API server URLs, specify each one here with [<name>@]<url>:<port> separated by a comma, e.g. mybotname@my.server:8081,my.server:8082,192.168.0.69:8083")
     parser.add_argument("-t", "--stake_coin", nargs="?", help="Stake coin. Default: USDT")
     parser.add_argument("-i", "--informative_coin", nargs="?", help="Informative coin. Default: BTC")
+    parser.add_argument("-b", "--basic_symbols", action="store_true", help="Display non-rounded ASCII charts, for TTYs with poor fancy symbol support. Default: False")
+    
     args = parser.parse_args()
     
     client_dict = {}
@@ -425,8 +427,8 @@ def main():
             cw = int(round(cdims.width - side_panel_minimum_size - chart_panel_buffer_size))
 
             try:
-                spc = pair_chart(pc, height=ch-4, width=cw, limit=cw, timeframe=chart_config['current_timeframe'])
-                ppc = profit_chart(pc, client_dict[chart_config['current_summary']], height=ch-4, width=cw)
+                spc = pair_chart(pc, height=ch-4, width=cw, limit=cw, timeframe=chart_config['current_timeframe'], basic_symbols=args.basic_symbols)
+                ppc = profit_chart(pc, client_dict[chart_config['current_summary']], height=ch-4, width=cw, basic_symbols=args.basic_symbols)
                 
                 layout["chart1"].update(Panel(spc[1], title=f"{spc[0]} [{pc.get_timeframe()}]"))
                 layout["chart2"].update(Panel(ppc, title=f"{chart_config['current_summary']} Cumulative Profit"))

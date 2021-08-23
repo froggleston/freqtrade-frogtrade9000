@@ -24,8 +24,10 @@ import ccxt  # noqa: E402
 
 # -----------------------------------------------------------------------------
 
-class BasicCharts():
+symbols = ['┼', '┤', '╶', '╴', '─', '└', '┌', '┐', '┘', '│']
 
+class BasicCharts():
+    
     def __init__(self, exchange=ccxt.binance(), symbol="BTC/USDT", timeframe="5m", limit=24, index=4):
         self.exchange = exchange
         self.symbol = symbol
@@ -60,28 +62,38 @@ class BasicCharts():
         df['Close'] = df['Close'].apply(float)
         return df
 
-    def get_chart_arr(self, height=20):
+    def get_chart_arr(self, height=20, basic_symbols=False):
         # get a list of ohlcv candles
         ohlcv = self.get_ohlcv(limit=self.limit)
 
         # get the ohlcv (closing price, index == 4)
         series = [x[self.index] for x in ohlcv]
 
+        cfg = {'height': height}
+        
+        if basic_symbols:
+            cfg['symbols'] = symbols
+            
         # print the chart
-        return plot(series, {'height': height})  # return chart array
+        return plot(series, cfg)  # return chart array
 
-    def get_chart_str(self, height=20, width=120, trades=None):
+    def get_chart_str(self, height=20, width=120, trades=None, basic_symbols=False):
         # get a list of ohlcv candles
         ohlcv = self.get_ohlcv(limit=self.limit)
         
         # get the ohlcv (closing price, index == 4)
         series = [x[self.index] for x in ohlcv]
         
-        outstr = plot_str(plot(series, {'height': height}))
+        cfg = {'height': height}
+        
+        if basic_symbols:
+            cfg['symbols'] = symbols
+        
+        outstr = plot_str(plot(series, cfg))
 
         return outstr
 
-    def get_profit_str(self, trades, height=20, width=120):
+    def get_profit_str(self, trades, height=20, width=120, basic_symbols=False):
         profit = 0
         profitseries = [0]
         
@@ -89,8 +101,13 @@ class BasicCharts():
             profit = profit + x['close_profit_abs']
             profitseries.append(profit)
         
+        cfg = {'height': height, 'min': min(profitseries)}
+        
+        if basic_symbols:
+            cfg['symbols'] = symbols
+                
         # print the chart
-        outstr = plot_str(plot(profitseries[-self.limit:], {'height': height, 'min': min(profitseries)}))
+        outstr = plot_str(plot(profitseries[-self.limit:], cfg))
         
         return outstr
     
