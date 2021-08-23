@@ -46,6 +46,7 @@ There's not much to say. It uses the Rich library to provide a console view, so 
 
 - use the number keys to change the top OHCLV chart to whichever open pair your bot is trading, e.g. from the screenshot above, pressing `1` would change the chart to SHIB/USDT. Pressing `0` takes you back to BTC/USDT (or whatever informative pair you've specified in the code).
 - use the letter keys to change the bottom profit chart based on whichever bots you're running, e.g. pressing `B` will take you to the bot running on `192.168.1.77:8082`
+- use the PgUp key to cycle through the OHCLV chart timeframe (supports 1m, 5m, 15m, 1h, 4h)
 
 ### Known issues
 
