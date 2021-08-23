@@ -39,6 +39,10 @@ class BasicCharts():
     def set_limit(self, limit=100):
         self.limit = limit
 
+    def set_timeframe(self, timeframe="5m"):
+        if timeframe in ["1m", "5m", "15m", "1h", "4h"]:
+            self.timeframe = timeframe
+        
     def get_timeframe(self):
         return self.timeframe
         
@@ -58,27 +62,26 @@ class BasicCharts():
 
     def get_chart_arr(self, height=20):
         # get a list of ohlcv candles
-        ohlcv = self.get_ohlcv(self)
+        ohlcv = self.get_ohlcv(limit=self.limit)
 
         # get the ohlcv (closing price, index == 4)
         series = [x[self.index] for x in ohlcv]
 
         # print the chart
-        return plot(series[-120:], {'height': height})  # return chart array
+        return plot(series, {'height': height})  # return chart array
 
-    def get_chart_str(self, height=20, width=120):
+    def get_chart_str(self, height=20, width=120, trades=None):
         # get a list of ohlcv candles
-        ohlcv = self.get_ohlcv()
-
+        ohlcv = self.get_ohlcv(limit=self.limit)
+        
         # get the ohlcv (closing price, index == 4)
         series = [x[self.index] for x in ohlcv]
-
-        # print the chart
-        outstr = plot_str(plot(series[-width:], {'height': height}))
+        
+        outstr = plot_str(plot(series, {'height': height}))
 
         return outstr
 
-    def get_profit_str(self, trades, height=20,  width=120):
+    def get_profit_str(self, trades, height=20, width=120):
         profit = 0
         profitseries = [0]
         
@@ -87,7 +90,7 @@ class BasicCharts():
             profitseries.append(profit)
         
         # print the chart
-        outstr = plot_str(plot(profitseries[-width:], {'height': height, 'min': min(profitseries)}))
+        outstr = plot_str(plot(profitseries[-self.limit:], {'height': height, 'min': min(profitseries)}))
         
         return outstr
     

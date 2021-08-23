@@ -2,12 +2,12 @@
 # -*- coding: utf-8 -*-
 
 """
-███████╗██████╗  ██████╗  ██████╗████████╗██████╗  █████╗ ██████╗ ███████╗ █████╗  ██████╗  ██████╗  ██████╗ 
+███████╗██████╗  ██████╗  ██████╗████████╗██████╗  █████╗ ██████╗ ███████╗ █████╗  ██████╗  ██████╗  ██████╗
 ██╔════╝██╔══██╗██╔═══██╗██╔════╝╚══██╔══╝██╔══██╗██╔══██╗██╔══██╗██╔════╝██╔══██╗██╔═████╗██╔═████╗██╔═████╗
 █████╗  ██████╔╝██║   ██║██║  ███╗  ██║   ██████╔╝███████║██║  ██║█████╗  ╚██████║██║██╔██║██║██╔██║██║██╔██║
 ██╔══╝  ██╔══██╗██║   ██║██║   ██║  ██║   ██╔══██╗██╔══██║██║  ██║██╔══╝   ╚═══██║████╔╝██║████╔╝██║████╔╝██║
 ██║     ██║  ██║╚██████╔╝╚██████╔╝  ██║   ██║  ██║██║  ██║██████╔╝███████╗ █████╔╝╚██████╔╝╚██████╔╝╚██████╔╝
-╚═╝     ╚═╝  ╚═╝ ╚═════╝  ╚═════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚═════╝ ╚══════╝ ╚════╝  ╚═════╝  ╚═════╝  ╚═════╝ 
+╚═╝     ╚═╝  ╚═╝ ╚═════╝  ╚═════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚═════╝ ╚══════╝ ╚════╝  ╚═════╝  ╚═════╝  ╚═════╝
 
 A command-line freqtrade REST API client
 
@@ -27,6 +27,7 @@ from __future__ import print_function, unicode_literals
 import json, random, sys, os, re, argparse, traceback
 from datetime import datetime
 from time import sleep
+from itertools import cycle
 
 import rest_client as ftrc
 import basic_chart as bc
@@ -48,9 +49,13 @@ from rich.table import Table
 from rich.text import Text
 
 header_size = 3
+side_panel_minimum_size = 104
+chart_panel_buffer_size = 15
 
 informative_coin="BTC"
 stake_coin="USDT"
+timeframes = ["15m", "1h", "4h", "1m", "5m"]
+tfcycle = cycle(timeframes)
 
 trades_config = {}
 chart_config = {}
@@ -79,6 +84,10 @@ if suderp:
             if kn in summmap:
                 chart_config['current_summary'] = summmap[kn]
 
+        # change chart timeframe
+        if key.name == "page up":
+            chart_config['current_timeframe'] = next(tfcycle)
+                
         #if escape is pressed make listening false and exit
         if key.name == "esc":
             os._exit(0)
@@ -123,7 +132,7 @@ def make_layout() -> Layout:
         Layout(name="footer", size=1),
     )
     layout["main"].split_row(
-        Layout(name="side", minimum_size=104),
+        Layout(name="side", minimum_size=side_panel_minimum_size),
         Layout(name="body", ratio=2),
     )
     layout["footer"].split_row(
@@ -154,7 +163,7 @@ class Header:
         return Panel(grid, style="white on blue")
 
 def trades_summary(client_dict) -> Table:
-    table = Table(expand=True)
+    table = Table(expand=True, box=box.HORIZONTALS)
 
     table.add_column("#", style="white", no_wrap=True)
     table.add_column("Bot", style="yellow", no_wrap=True)
@@ -188,7 +197,7 @@ def trades_summary(client_dict) -> Table:
     return table
     
 def open_trades_table(client_dict) -> Table:
-    table = Table(expand=True)
+    table = Table(expand=True, box=box.HORIZONTALS)
     
     table.add_column("#", style="white", no_wrap=True)
     table.add_column("Bot", style="yellow", no_wrap=True)
@@ -211,13 +220,15 @@ def open_trades_table(client_dict) -> Table:
                     table.add_column("Buy Tag", justify="right")
 
             ttime = datetime.strptime(t['open_date'], fmt)
-
+            
+            pairstr = t['pair'] + ('*' if (t['open_order_id'] is not None and t['close_rate_requested'] is None) else '') + ('**' if (t['close_rate_requested'] is not None) else '')
+            
             if 'buy_tag' in t.keys():
                 table.add_row(
                     f"{tradenum}",
                     f"{n}",
                     f"{t['strategy']}",
-                    f"{t['pair']}",
+                    f"{pairstr}",
                     f"[red]{t['profit_pct']}" if t['profit_pct'] <= 0 else f"[green]{t['profit_pct']}",
                     f"{str(current_time-ttime).split('.')[0]}",
                     f"{t['buy_tag']}"
@@ -227,7 +238,7 @@ def open_trades_table(client_dict) -> Table:
                     f"{tradenum}",
                     f"{n}",
                     f"{t['strategy']}",
-                    f"{t['pair']}",
+                    f"{pairstr}",
                     f"[red]{t['profit_pct']}" if t['profit_pct'] <= 0 else f"[green]{t['profit_pct']}",
                     f"{str(current_time-ttime).split('.')[0]}"
                 )
@@ -242,7 +253,7 @@ def open_trades_table(client_dict) -> Table:
     return table
 
 def closed_trades_table(client_dict) -> Table:
-    table = Table(expand=True)
+    table = Table(expand=True, box=box.HORIZONTALS)
     
     table.add_column("ID", style="white", no_wrap=True)
     table.add_column("Bot", style="yellow", no_wrap=True)
@@ -277,13 +288,13 @@ def closed_trades_table(client_dict) -> Table:
     return table
 
 def daily_profit_table(client_dict) -> Table:
-    table = Table(expand=True)
+    table = Table(expand=True, box=box.HORIZONTALS)
 
     table.add_column("Date", style="white", no_wrap=True)
     
     for n, cl in client_dict.items():
-        table.add_column(f"{n}", style="yellow")
-        table.add_column("#", style="cyan")
+        table.add_column(f"{n}", style="yellow", justify="right")
+        table.add_column("#", style="cyan", justify="left")
     
     dailydict = {}
     
@@ -303,10 +314,14 @@ def daily_profit_table(client_dict) -> Table:
     
     return table
 
-def pair_chart(basic_chart, height=20, width=120, limit=None):
+def pair_chart(basic_chart, height=20, width=120, limit=None, timeframe=None):
     basic_chart.set_symbol(chart_config['current_pair'])
     if limit is not None:
         basic_chart.set_limit(limit)
+        
+    if timeframe is not None:
+        basic_chart.set_timeframe(timeframe)
+        
     return (chart_config['current_pair'], basic_chart.get_chart_str(height=height, width=width))
     
 def profit_chart(basic_chart, client, height=20, width=120, limit=None):
@@ -319,7 +334,6 @@ def search_box():
     cdims = console.size
     ch = int(round(cdims.height/2))
     return str(ch)
-
     
 def main():
 
@@ -381,13 +395,14 @@ def main():
         raise Exception("No valid clients specified in config or --servers option")
     
     chart_config['current_summary'] = str(list(client_dict.keys())[0])
+    chart_config['current_timeframe'] = "5m"
     
     console = Console()
     cdims = console.size
     ch = int(round(cdims.height/2)-header_size)
-    cw = int(round(cdims.width/2))-4
+    cw = int(round(cdims.width - side_panel_minimum_size - chart_panel_buffer_size))
 
-    pc = bc.BasicCharts(symbol=chart_config['current_pair'], timeframe="5m", limit=cw)
+    pc = bc.BasicCharts(symbol=chart_config['current_pair'], timeframe=chart_config['current_timeframe'], limit=cw)
     
     layout = make_layout()
     layout["header"].update(Header())
@@ -407,13 +422,12 @@ def main():
         while True:
             cdims = console.size
             ch = int(round(cdims.height/2)-header_size)
-            cw = int(round(cdims.width/2))-4
-            
+            cw = int(round(cdims.width - side_panel_minimum_size - chart_panel_buffer_size))
 
             try:
-                spc = pair_chart(pc, height=ch-4, width=cw)
+                spc = pair_chart(pc, height=ch-4, width=cw, limit=cw, timeframe=chart_config['current_timeframe'])
                 ppc = profit_chart(pc, client_dict[chart_config['current_summary']], height=ch-4, width=cw)
-
+                
                 layout["chart1"].update(Panel(spc[1], title=f"{spc[0]} [{pc.get_timeframe()}]"))
                 layout["chart2"].update(Panel(ppc, title=f"{chart_config['current_summary']} Cumulative Profit"))
 
@@ -425,7 +439,8 @@ def main():
                 layout["daily"].update(Panel(daily_profit_table(client_dict), title="Daily Profit", border_style="yellow", height=14))
                 layout["closed"].update(Panel(closed_trades_table(client_dict), title="Closed Trades", border_style="blue"))
 
-                layout["footer_left"].update("[green] OK")
+                # layout["footer_left"].update(f"[green] OK {ch} x {cw} | {cp.__rich_measure__(console, console.options)[0]} x {cp.__rich_measure__(console, console.options)[1]}")
+                layout["footer_left"].update(f"[green] OK")
             except Exception as e:
                 layout["footer_left"].update(f"[red] ERROR: {e}")
 
