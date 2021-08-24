@@ -61,4 +61,4 @@ There's not much to say. It uses the Rich library to provide a console view, so 
 
 ### Acknowledgements
 
-The very cool ASCII charts are from https://github.com/kroitor/asciichart
+The very cool ASCII charts are from https://github.com/kroitor/asciichart under the [MIT licence](https://github.com/kroitor/asciichart/blob/master/LICENSE.txt)
