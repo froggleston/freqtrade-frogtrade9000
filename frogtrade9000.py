@@ -66,7 +66,7 @@ chart_config = {}
 ## keyboard entry on linux won't work unless you're sudo
 suderp = (sys.platform != "linux") or (sys.platform == "linux" and os.geteuid() == 0)
 
-urlre = "^\[([a-zA-Z0-9]+)\]*([a-z0-9\-._~%!$&'()*+,;=]+)?:([a-z0-9\-._~%!$&'()*+,;=]+)@?([a-z0-9\-._~%]+|\[[a-f0-9:.]+\]|\[v[a-f0-9][a-z0-9\-._~%!$&'()*+,;=:]+\]):([0-9]+)?"
+urlre = "^\[([a-zA-Z0-9]+)\]*([a-zA-Z0-9\-._~%!$&'()*+,;=]+)?:([a-zA-Z0-9\-._~%!$&'()*+,;=]+)@?([a-z0-9\-._~%]+|\[[a-f0-9:.]+\]|\[v[a-f0-9][a-z0-9\-._~%!$&'()*+,;=:]+\]):([0-9]+)?"
 
 if suderp:
     import keyboard
