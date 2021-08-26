@@ -52,6 +52,9 @@ header_size = 3
 side_panel_minimum_size = 104
 chart_panel_buffer_size = 15
 
+# number of closed trades to show per bot
+num_closed_trades = 3
+
 informative_coin="BTC"
 stake_coin="USDT"
 timeframes = ["15m", "1h", "4h", "1m", "5m"]
@@ -168,15 +171,20 @@ def trades_summary(client_dict) -> Table:
     table.add_column("#", style="white", no_wrap=True)
     table.add_column("Bot", style="yellow", no_wrap=True)
     table.add_column("# Trades", style="magenta")
-    table.add_column("W/L", justify="center")
+    table.add_column("Open Profit", style="blue", justify="right")
     table.add_column("Profit", justify="right")
+    table.add_column("W/L", justify="right")
     
     summ = 'A'
     summmap = {}
     
     for n, cl in client_dict.items():
+        tot_profit = 0
+        for ot in cl.status():
+            tot_profit = tot_profit + ot['profit_abs']
+        
         t = cl.profit()
-        pcc = int(t['profit_closed_coin'])
+        pcc = round(float(t['profit_closed_coin']), 2)
         # coin = t['best_pair'].split('/')[1]
         coin = stake_coin
         
@@ -184,8 +192,9 @@ def trades_summary(client_dict) -> Table:
             f"{summ}",
             f"{n}",
             f"{int(t['trade_count'])-int(t['closed_trade_count'])}/{t['closed_trade_count']}",
+            f"[red]{round(tot_profit, 2)} [white]{coin}" if tot_profit <= 0 else f"[green]{round(tot_profit, 2)} [white]{coin}",
+            f"[red]{pcc} [white]{coin}" if pcc <= 0 else f"[green]{pcc} [white]{coin}",
             f"[green]{t['winning_trades']}/[red]{t['losing_trades']}",
-            f"[red]{pcc} [white]{coin}" if pcc <= 0 else f"[green]{pcc} [white]{coin}"
         )
         
         summmap[summ] = n
@@ -203,6 +212,7 @@ def open_trades_table(client_dict) -> Table:
     table.add_column("Bot", style="yellow", no_wrap=True)
     table.add_column("Strat", style="cyan")
     table.add_column("Pair", style="magenta", no_wrap=True)
+    table.add_column("Profit %", justify="right")
     table.add_column("Profit", justify="right")
     table.add_column("Dur.", justify="right")
 
@@ -230,6 +240,7 @@ def open_trades_table(client_dict) -> Table:
                     f"{t['strategy']}",
                     f"{pairstr}",
                     f"[red]{t['profit_pct']}" if t['profit_pct'] <= 0 else f"[green]{t['profit_pct']}",
+                    f"[red]{round(t['profit_abs'], 2)}" if t['profit_abs'] < 0 else f"[green]{round(t['profit_abs'], 2)}",
                     f"{str(current_time-ttime).split('.')[0]}",
                     f"{t['buy_tag']}"
                 )
@@ -240,6 +251,7 @@ def open_trades_table(client_dict) -> Table:
                     f"{t['strategy']}",
                     f"{pairstr}",
                     f"[red]{t['profit_pct']}" if t['profit_pct'] <= 0 else f"[green]{t['profit_pct']}",
+                    f"[red]{t['profit_abs']}" if t['profit_abs'] < 0 else f"[green]{t['profit_abs']}",
                     f"{str(current_time-ttime).split('.')[0]}"
                 )
             
@@ -269,7 +281,7 @@ def closed_trades_table(client_dict) -> Table:
     for n, cl in client_dict.items():
         trades = cl.trades()['trades']
         trades.reverse()
-        for t in trades[:3]:
+        for t in trades[:num_closed_trades]:
             otime = datetime.strptime(t['open_date'], fmt)
             ctime = datetime.strptime(t['close_date'], fmt)
             rpfta = round(float(t['profit_abs']), 2)
@@ -329,14 +341,14 @@ def profit_chart(basic_chart, client, height=20, width=120, limit=None, basic_sy
     if limit is not None:
         basic_chart.set_limit(limit)
     return basic_chart.get_profit_str(t, height=height, width=width, basic_symbols=basic_symbols)
-
-def search_box():
+    
+def get_real_chart_dims(console):
     cdims = console.size
-    ch = int(round(cdims.height/2))
-    return str(ch)
+    ch = int(round(cdims.height/2) - header_size)
+    cw = int(round(cdims.width - side_panel_minimum_size - chart_panel_buffer_size))
+    return ch, cw
     
 def main():
-
     parser = argparse.ArgumentParser()
     
     parser.add_argument("-c", "--config", nargs='?', help="Config to parse")
@@ -400,9 +412,7 @@ def main():
     chart_config['current_timeframe'] = "5m"
     
     console = Console()
-    cdims = console.size
-    ch = int(round(cdims.height/2)-header_size)
-    cw = int(round(cdims.width - side_panel_minimum_size - chart_panel_buffer_size))
+    ch, cw = get_real_chart_dims(console)
 
     pc = bc.BasicCharts(symbol=chart_config['current_pair'], timeframe=chart_config['current_timeframe'], limit=cw)
     
@@ -422,9 +432,7 @@ def main():
             keyboard.on_press(key_press)
         
         while True:
-            cdims = console.size
-            ch = int(round(cdims.height/2)-header_size)
-            cw = int(round(cdims.width - side_panel_minimum_size - chart_panel_buffer_size))
+            ch, cw = get_real_chart_dims(console)
 
             try:
                 spc = pair_chart(pc, height=ch-4, width=cw, limit=cw, timeframe=chart_config['current_timeframe'], basic_symbols=args.basic_symbols)
@@ -446,7 +454,6 @@ def main():
             except Exception as e:
                 layout["footer_left"].update(f"[red] ERROR: {e}")
 
-    
 if __name__ == "__main__":
     try:
         main()
@@ -454,4 +461,3 @@ if __name__ == "__main__":
     except Exception as e:
         traceback.print_exc()
         print("You got frogged: ", e)
-        
