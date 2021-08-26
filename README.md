@@ -40,6 +40,10 @@ The nice thing about frogtrade9000 is that you can monitor multiple bots and str
 
 > ./scripts/frogtrade9000.py -s \[bot1\]user:pass@192.168.1.69:8081,\[bot2\]user:pass@127.0.0.1:8082
 
+For simpler TTYs/terminals that cannot display curved symbols, use the `-b` option to use square edges so plots render correctly:
+
+> ./scripts/frogtrade9000.py -s \[bot1\]user:pass@192.168.1.69:8081,\[bot2\]user:pass@127.0.0.1:8082 -b
+
 ### Using frogtrade9000
 
 There's not much to say. It uses the Rich library to provide a console view, so there isn't really any decent interactivity as part of that library. However, if the keyboard is working (see below) then you can:
@@ -57,4 +61,4 @@ There's not much to say. It uses the Rich library to provide a console view, so 
 
 ### Acknowledgements
 
-The very cool ASCII charts are from https://github.com/kroitor/asciichart
+The very cool ASCII charts are from https://github.com/kroitor/asciichart under the [MIT licence](https://github.com/kroitor/asciichart/blob/master/LICENSE.txt)
