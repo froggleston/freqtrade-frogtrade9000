@@ -10,20 +10,34 @@ It has very basic interactivity via the keyboard module which has cross-platform
 
 If you don't have freqtrade, get it [here](https://github.com/freqtrade/freqtrade/), and you'll satisfy most of the requirements. If not you'll need to pip install:
 
+#### Existing Freqtrade install
+
+If you're intending to copy the scripts into an existing freqtrade folder, you'll need to activate your venv (e.g. `source ./path/to/freqtrade/env/bin/activate`) and pip install:
+
+- keyboard
+- rich
+
+#### Standalone
+
+You'll need to activate your venv or use the global python environment, and pip install:
+
 - numpy
 - pandas
 - ccxt
-- rich
 - python-rapidjson
 - keyboard
+- rich
 
 ### Installation
 
-#### Existing Freqtrade install
+#### Existing venv Freqtrade install
 Once cloned, copy the script files into your freqtrade/scripts folder. That's it!
 
+#### Existing dockerised Freqtrade install
+You need to add a COPY command into your freqtrade dockerfile to copy the scripts into the container and rebuild. Full instructions coming soon!
+
 #### Standalone
-You'll need the rest_client.py file from the core freqtrade repo and place it in the same folder you put these files. Grab it from here:
+You'll need the rest_client.py file from the core freqtrade repo and place it in the same folder that you put these files. Grab it from here:
 https://github.com/freqtrade/freqtrade/blob/stable/scripts/rest_client.py
 
 ### Running
@@ -43,6 +57,8 @@ The nice thing about frogtrade9000 is that you can monitor multiple bots and str
 For simpler TTYs/terminals that cannot display curved symbols, use the `-b` option to use square edges so plots render correctly:
 
 > ./scripts/frogtrade9000.py -s \[bot1\]user:pass@192.168.1.69:8081,\[bot2\]user:pass@127.0.0.1:8082 -b
+
+**Note that your password has to be RFC compliant. You can use alphanumeric characters and `- . _ ~ % ! $ & ' ( ) * + , ; =`**
 
 ### Using frogtrade9000
 
