@@ -8,7 +8,7 @@ It has very basic interactivity via the keyboard module which has cross-platform
 
 ### Requirements
 
-If you don't have freqtrade, get it [here](https://github.com/freqtrade/freqtrade/), and you'll satisfy most of the requirements. If not you'll need to pip install:
+If you don't have freqtrade, get it [here](https://github.com/freqtrade/freqtrade/), and you'll satisfy most of the requirements. If not you'll need to pip install the following requirements.
 
 #### Existing Freqtrade install
 
