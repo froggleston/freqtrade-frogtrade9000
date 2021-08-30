@@ -166,7 +166,7 @@ class Header:
         return Panel(grid, style="white on blue")
 
 def trades_summary(client_dict) -> Table:
-    table = Table(expand=True, box=box.HORIZONTALS)
+    table = Table(expand=True, box=box.HORIZONTALS, show_footer=True)
 
     table.add_column("#", style="white", no_wrap=True)
     table.add_column("Bot", style="yellow", no_wrap=True)
@@ -178,7 +178,13 @@ def trades_summary(client_dict) -> Table:
     summ = 'A'
     summmap = {}
     
+    all_open_profit = 0
+    all_profit = 0
+    all_wins = 0
+    all_losses = 0
+    
     for n, cl in client_dict.items():
+        itemcount = 1
         tot_profit = 0
         for ot in cl.status():
             tot_profit = tot_profit + ot['profit_abs']
@@ -187,6 +193,11 @@ def trades_summary(client_dict) -> Table:
         pcc = round(float(t['profit_closed_coin']), 2)
         # coin = t['best_pair'].split('/')[1]
         coin = stake_coin
+        
+        all_open_profit = all_open_profit + tot_profit
+        all_profit = all_profit + pcc
+        all_wins = all_wins + t['winning_trades']
+        all_losses = all_losses + t['losing_trades']
         
         table.add_row(
             f"{summ}",
@@ -200,8 +211,12 @@ def trades_summary(client_dict) -> Table:
         summmap[summ] = n
         
         summ = chr(ord(summ) + 1)
+        
+    table.columns[3].footer = f"[red]{round(all_open_profit, 2)} [white]{coin}" if all_open_profit <= 0 else f"[green]{round(all_open_profit, 2)} [white]{coin}"
+    table.columns[4].footer = f"[red]{all_profit} [white]{coin}" if all_profit <= 0 else f"[green]{all_profit} [white]{coin}"
+    table.columns[5].footer = f"[green]{all_wins}/[red]{all_losses}"
 
-    trades_config['summmap'] = summmap        
+    trades_config['summmap'] = summmap
         
     return table
     
@@ -443,8 +458,8 @@ def main():
 
                 layout["open"].update(Panel(open_trades_table(client_dict), title="Open Trades", border_style="green"))
 
-                layout["summary"].size = 6+len(client_dict.items())
-                layout["summary"].update(Panel(trades_summary(client_dict), title="Trades Summary", border_style="red", height=6+len(client_dict.items())))
+                layout["summary"].size = 7+len(client_dict.items())
+                layout["summary"].update(Panel(trades_summary(client_dict), title="Trades Summary", border_style="red", height=7+len(client_dict.items())))
 
                 layout["daily"].update(Panel(daily_profit_table(client_dict), title="Daily Profit", border_style="yellow", height=14))
                 layout["closed"].update(Panel(closed_trades_table(client_dict), title="Closed Trades", border_style="blue"))
