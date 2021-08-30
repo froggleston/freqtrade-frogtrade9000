@@ -213,7 +213,7 @@ def trades_summary(client_dict) -> Table:
         summ = chr(ord(summ) + 1)
         
     table.columns[3].footer = f"[red]{round(all_open_profit, 2)} [white]{coin}" if all_open_profit <= 0 else f"[green]{round(all_open_profit, 2)} [white]{coin}"
-    table.columns[4].footer = f"[red]{all_profit} [white]{coin}" if all_profit <= 0 else f"[green]{all_profit} [white]{coin}"
+    table.columns[4].footer = f"[red]{round(all_profit, 2)} [white]{coin}" if all_profit <= 0 else f"[green]{round(all_profit, 2)} [white]{coin}"
     table.columns[5].footer = f"[green]{all_wins}/[red]{all_losses}"
 
     trades_config['summmap'] = summmap
