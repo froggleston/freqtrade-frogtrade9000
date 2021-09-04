@@ -173,6 +173,7 @@ def trades_summary(client_dict) -> Table:
     table.add_column("# Trades", style="magenta")
     table.add_column("Open Profit", style="blue", justify="right")
     table.add_column("Profit", justify="right")
+    table.add_column("Net Profit", justify="right")
     table.add_column("W/L", justify="right")
     
     summ = 'A'
@@ -205,6 +206,7 @@ def trades_summary(client_dict) -> Table:
             f"{int(t['trade_count'])-int(t['closed_trade_count'])}/{t['closed_trade_count']}",
             f"[red]{round(tot_profit, 2)} [white]{coin}" if tot_profit <= 0 else f"[green]{round(tot_profit, 2)} [white]{coin}",
             f"[red]{pcc} [white]{coin}" if pcc <= 0 else f"[green]{pcc} [white]{coin}",
+            f"[red]{round(pcc+tot_profit, 2)} [white]{coin}" if (pcc+tot_profit) <= 0 else f"[green]{round(pcc+tot_profit, 2)} [white]{coin}",
             f"[green]{t['winning_trades']}/[red]{t['losing_trades']}",
         )
         
@@ -214,7 +216,8 @@ def trades_summary(client_dict) -> Table:
         
     table.columns[3].footer = f"[red]{round(all_open_profit, 2)} [white]{coin}" if all_open_profit <= 0 else f"[green]{round(all_open_profit, 2)} [white]{coin}"
     table.columns[4].footer = f"[red]{round(all_profit, 2)} [white]{coin}" if all_profit <= 0 else f"[green]{round(all_profit, 2)} [white]{coin}"
-    table.columns[5].footer = f"[green]{all_wins}/[red]{all_losses}"
+    table.columns[5].footer = f"[red]{round((all_profit+all_open_profit), 2)} [white]{coin}" if (all_profit+all_open_profit) <= 0 else f"[green]{round(all_profit+all_open_profit)} [white]{coin}"
+    table.columns[6].footer = f"[green]{all_wins}/[red]{all_losses}"
 
     trades_config['summmap'] = summmap
         
