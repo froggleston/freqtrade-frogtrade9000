@@ -98,7 +98,7 @@ class BasicCharts():
         profitseries = [0]
         
         for x in trades:
-            profit = profit + x['close_profit_abs']
+            profit = profit + int(x['close_profit_abs'])
             profitseries.append(profit)
         
         cfg = {'height': height, 'min': min(profitseries)}

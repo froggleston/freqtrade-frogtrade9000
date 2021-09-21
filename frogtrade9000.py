@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 """
@@ -24,7 +24,7 @@ Conception Date: August 2021
 
 from __future__ import print_function, unicode_literals
 
-import json, random, sys, os, re, argparse, traceback
+import json, random, sys, os, re, argparse, traceback, statistics
 from datetime import datetime
 from time import sleep
 from itertools import cycle
@@ -122,10 +122,10 @@ def setup_client(name=None, config_path=None, url=None, port=None, username=None
     c = client.version()
     if "detail" in c.keys() and (c["detail"] == 'Unauthorized'):
         raise Exception(f"Could not connect to bot [{url}:{port}]: Unauthorised")
-
+    
     return name, client
 
-def make_layout() -> Layout:
+def make_layout(exclude_charts=False) -> Layout:
     """Define the layout."""
     layout = Layout(name="root")
 
@@ -134,10 +134,18 @@ def make_layout() -> Layout:
         Layout(name="main", ratio=1),
         Layout(name="footer", size=1),
     )
-    layout["main"].split_row(
-        Layout(name="side", minimum_size=side_panel_minimum_size),
-        Layout(name="body", ratio=2),
-    )
+    
+    if exclude_charts:
+        layout["main"].split_row(
+            Layout(name="side"),
+        )
+    else:
+        layout["main"].split_row(
+            Layout(name="side", minimum_size=side_panel_minimum_size),
+            Layout(name="body", ratio=2),
+        )
+        layout["body"].split(Layout(name="chart1"), Layout(name="chart2"))
+    
     layout["footer"].split_row(
         Layout(name="footer_left"),
         Layout(name="footer_right")
@@ -149,7 +157,6 @@ def make_layout() -> Layout:
         Layout(name="summary"),
         Layout(name="daily", size=15))
 
-    layout["body"].split(Layout(name="chart1"), Layout(name="chart2"))
     return layout
 
 class Header:
@@ -171,9 +178,11 @@ def trades_summary(client_dict) -> Table:
     table.add_column("#", style="white", no_wrap=True)
     table.add_column("Bot", style="yellow", no_wrap=True)
     table.add_column("# Trades", style="magenta")
-    table.add_column("Open Profit", style="blue", justify="right")
-    table.add_column("Profit", justify="right")
     table.add_column("W/L", justify="right")
+    table.add_column("Open Profit", style="blue", justify="right")
+    table.add_column("Mean", justify="right")
+    table.add_column("Median", justify="right")
+    table.add_column("Total", justify="right")
     
     summ = 'A'
     summmap = {}
@@ -186,8 +195,23 @@ def trades_summary(client_dict) -> Table:
     for n, cl in client_dict.items():
         itemcount = 1
         tot_profit = 0
-        for ot in cl.status():
-            tot_profit = tot_profit + ot['profit_abs']
+        
+        cls = cl.status()
+        
+        if cls is not None:
+            for ot in cl.status():
+                tot_profit = tot_profit + ot['profit_abs']
+            
+        tp = []
+        for at in cl.trades()['trades']:
+            tp.append(float(at['profit_abs']))
+        
+        mean_prof = 0
+        median_prof = 0
+        
+        if len(tp) > 0:
+            mean_prof = round(statistics.mean(tp), 2)
+            median_prof = round(statistics.median(tp), 2)
         
         t = cl.profit()
         pcc = round(float(t['profit_closed_coin']), 2)
@@ -198,23 +222,25 @@ def trades_summary(client_dict) -> Table:
         all_profit = all_profit + pcc
         all_wins = all_wins + t['winning_trades']
         all_losses = all_losses + t['losing_trades']
-        
+
         table.add_row(
             f"{summ}",
             f"{n}",
             f"{int(t['trade_count'])-int(t['closed_trade_count'])}/{t['closed_trade_count']}",
-            f"[red]{round(tot_profit, 2)} [white]{coin}" if tot_profit <= 0 else f"[green]{round(tot_profit, 2)} [white]{coin}",
-            f"[red]{pcc} [white]{coin}" if pcc <= 0 else f"[green]{pcc} [white]{coin}",
             f"[green]{t['winning_trades']}/[red]{t['losing_trades']}",
+            f"[red]{round(tot_profit, 2)} [white]{coin}" if tot_profit <= 0 else f"[green]{round(tot_profit, 2)} [white]{coin}",
+            f"[red]{mean_prof} [white]{coin}" if mean_prof <= 0 else f"[green]{mean_prof} [white]{coin}",
+            f"[red]{median_prof} [white]{coin}" if median_prof <= 0 else f"[green]{median_prof} [white]{coin}",
+            f"[red]{pcc} [white]{coin}" if pcc <= 0 else f"[green]{pcc} [white]{coin}",
         )
         
         summmap[summ] = n
         
         summ = chr(ord(summ) + 1)
-        
-    table.columns[3].footer = f"[red]{round(all_open_profit, 2)} [white]{coin}" if all_open_profit <= 0 else f"[green]{round(all_open_profit, 2)} [white]{coin}"
-    table.columns[4].footer = f"[red]{round(all_profit, 2)} [white]{coin}" if all_profit <= 0 else f"[green]{round(all_profit, 2)} [white]{coin}"
-    table.columns[5].footer = f"[green]{all_wins}/[red]{all_losses}"
+      
+    table.columns[3].footer = f"[green]{all_wins}/[red]{all_losses}"    
+    table.columns[4].footer = f"[red]{round(all_open_profit, 2)} [white]{coin}" if all_open_profit <= 0 else f"[green]{round(all_open_profit, 2)} [white]{coin}"
+    table.columns[7].footer = f"[red]{round(all_profit, 2)} [white]{coin}" if all_profit <= 0 else f"[green]{round(all_profit, 2)} [white]{coin}"
 
     trades_config['summmap'] = summmap
         
@@ -279,7 +305,57 @@ def open_trades_table(client_dict) -> Table:
     
     return table
 
-def closed_trades_table(client_dict) -> Table:
+def get_all_closed_trades(client_dict) -> dict:
+    all_closed_trades = {}
+    
+    for n, cl in client_dict.items():
+        ps = cl.profit()
+        
+        if ps is not None:
+            num_all_closed_trades = int(ps['closed_trade_count'])
+
+            m, r = divmod(int(num_all_closed_trades), 500)
+            trades = []
+
+            if m > 1:
+                ## get last 500
+                cltrades = cl.trades()
+                if cltrades is not None and 'trades' in cltrades:
+                    clt = cltrades['trades']
+                    if clt is not None and len(clt) > 0:
+                        trades.extend(clt)
+
+                for i in range(1, m+1):
+                    cltrades = cl.trades(offset=(500 * i))
+                    if cltrades is not None and 'trades' in cltrades:
+                        clt = cltrades['trades']
+                        if clt is not None and len(clt) > 0:
+                            trades.extend(clt)                        
+
+            elif m == 1:
+                cltrades = cl.trades()
+                if cltrades is not None and 'trades' in cltrades:
+                    clt = cltrades['trades']
+                    if clt is not None and len(clt) > 0:
+                        trades.extend(clt)                    
+
+                cltrades = cl.trades(offset=500)
+                if cltrades is not None and 'trades' in cltrades:
+                    clt = cltrades['trades']
+                    if clt is not None and len(clt) > 0:
+                        trades.extend(clt)                    
+            else:
+                cltrades = cl.trades()
+                if cltrades is not None and 'trades' in cltrades:
+                    clt = cltrades['trades']
+                    if clt is not None and len(clt) > 0:
+                        trades = clt
+
+            all_closed_trades[n] = trades
+    
+    return all_closed_trades
+
+def closed_trades_table(client_dict, trades_dict) -> Table:
     table = Table(expand=True, box=box.HORIZONTALS)
     
     table.add_column("ID", style="white", no_wrap=True)
@@ -293,25 +369,27 @@ def closed_trades_table(client_dict) -> Table:
     
     fmt = "%Y-%m-%d %H:%M:%S"
     
-    for n, cl in client_dict.items():
-        trades = cl.trades()['trades']
-        trades.reverse()
-        for t in trades[:num_closed_trades]:
-            otime = datetime.strptime(t['open_date'], fmt)
-            ctime = datetime.strptime(t['close_date'], fmt)
-            rpfta = round(float(t['profit_abs']), 2)
-            
-            table.add_row(
-                f"{t['trade_id']}",
-                f"{n}",
-                f"{t['strategy']}",
-                f"{t['pair']}",
-                f"[red]{t['profit_pct']}" if t['profit_pct'] <= 0 else f"[green]{t['profit_pct']}",
-                f"[red]{rpfta}" if rpfta <= 0 else f"[green]{rpfta}",
-                f"{str(ctime-otime).split('.')[0]}",
-                f"{t['sell_reason']}"
-            )
-    
+    for n, cl in client_dict.items():    
+        trades = trades_dict[n]
+        if trades is not None:
+            trades.reverse()
+
+            for t in trades[:num_closed_trades]:
+                otime = datetime.strptime(t['open_date'], fmt)
+                ctime = datetime.strptime(t['close_date'], fmt)
+                rpfta = round(float(t['profit_abs']), 2)
+
+                table.add_row(
+                    f"{t['trade_id']}",
+                    f"{n}",
+                    f"{t['strategy']}",
+                    f"{t['pair']}",
+                    f"[red]{t['profit_pct']}" if t['profit_pct'] <= 0 else f"[green]{t['profit_pct']}",
+                    f"[red]{rpfta}" if rpfta <= 0 else f"[green]{rpfta}",
+                    f"{str(ctime-otime).split('.')[0]}",
+                    f"{t['sell_reason']}"
+                )
+
     return table
 
 def daily_profit_table(client_dict) -> Table:
@@ -351,11 +429,11 @@ def pair_chart(basic_chart, height=20, width=120, limit=None, timeframe=None, ba
         
     return (chart_config['current_pair'], basic_chart.get_chart_str(height=height, width=width, basic_symbols=basic_symbols))
     
-def profit_chart(basic_chart, client, height=20, width=120, limit=None, basic_symbols=False):
-    t = client.trades()['trades']
+def profit_chart(basic_chart, all_trades, height=20, width=120, limit=None, basic_symbols=False):
+    # t = client.trades()['trades']
     if limit is not None:
         basic_chart.set_limit(limit)
-    return basic_chart.get_profit_str(t, height=height, width=width, basic_symbols=basic_symbols)
+    return basic_chart.get_profit_str(all_trades, height=height, width=width, basic_symbols=basic_symbols)
     
 def get_real_chart_dims(console):
     cdims = console.size
@@ -371,6 +449,7 @@ def main():
     parser.add_argument("-t", "--stake_coin", nargs="?", help="Stake coin. Default: USDT")
     parser.add_argument("-i", "--informative_coin", nargs="?", help="Informative coin. Default: BTC")
     parser.add_argument("-b", "--basic_symbols", action="store_true", help="Display non-rounded ASCII charts, for TTYs with poor fancy symbol support. Default: False")
+    parser.add_argument("-x", "--exclude_charts", action="store_true", help="Do not draw charts, and expand sidebar to whole window. Default: False")
     
     args = parser.parse_args()
     
@@ -431,10 +510,14 @@ def main():
 
     pc = bc.BasicCharts(symbol=chart_config['current_pair'], timeframe=chart_config['current_timeframe'], limit=cw)
     
-    layout = make_layout()
+    layout = make_layout(exclude_charts=args.exclude_charts)
+    
     layout["header"].update(Header())
-    layout["chart1"].update(Panel(Status("Loading...", spinner="line")))
-    layout["chart2"].update(Panel(Status("Loading...", spinner="line")))
+    
+    if not args.exclude_charts:
+        layout["chart1"].update(Panel(Status("Loading...", spinner="line")))
+        layout["chart2"].update(Panel(Status("Loading...", spinner="line")))
+        
     layout["open"].update(Panel(Status("Loading...", spinner="line"), title="Open Trades", border_style="green"))
     layout["summary"].update(Panel(Status("Loading...", spinner="line"), title="Trades Summary", border_style="red"))
     layout["daily"].update(Panel(Status("Loading...", spinner="line"), title="Daily Profit", border_style="yellow"))
@@ -442,19 +525,22 @@ def main():
     layout["footer_left"].update("Status: Loading...")
     layout["footer_right"].update(Text("Written by @froggleston [https://github.com/froggleston]", justify="right"))
 
-    with Live(layout, refresh_per_second=1, screen=True):
+    with Live(layout, refresh_per_second=0.2, screen=True):
         if suderp:
             keyboard.on_press(key_press)
         
         while True:
+            all_closed_trades = get_all_closed_trades(client_dict)
+            
             ch, cw = get_real_chart_dims(console)
 
             try:
-                spc = pair_chart(pc, height=ch-4, width=cw, limit=cw, timeframe=chart_config['current_timeframe'], basic_symbols=args.basic_symbols)
-                ppc = profit_chart(pc, client_dict[chart_config['current_summary']], height=ch-4, width=cw, basic_symbols=args.basic_symbols)
+                if not args.exclude_charts:
+                    spc = pair_chart(pc, height=ch-4, width=cw, limit=cw, timeframe=chart_config['current_timeframe'], basic_symbols=args.basic_symbols)
+                    ppc = profit_chart(pc, all_closed_trades[chart_config['current_summary']], height=ch-4, width=cw, basic_symbols=args.basic_symbols)
                 
-                layout["chart1"].update(Panel(spc[1], title=f"{spc[0]} [{pc.get_timeframe()}]"))
-                layout["chart2"].update(Panel(ppc, title=f"{chart_config['current_summary']} Cumulative Profit"))
+                    layout["chart1"].update(Panel(spc[1], title=f"{spc[0]} [{pc.get_timeframe()}]"))
+                    layout["chart2"].update(Panel(ppc, title=f"{chart_config['current_summary']} Cumulative Profit"))
 
                 layout["open"].update(Panel(open_trades_table(client_dict), title="Open Trades", border_style="green"))
 
@@ -462,11 +548,12 @@ def main():
                 layout["summary"].update(Panel(trades_summary(client_dict), title="Trades Summary", border_style="red", height=7+len(client_dict.items())))
 
                 layout["daily"].update(Panel(daily_profit_table(client_dict), title="Daily Profit", border_style="yellow", height=14))
-                layout["closed"].update(Panel(closed_trades_table(client_dict), title="Closed Trades", border_style="blue"))
+                layout["closed"].update(Panel(closed_trades_table(client_dict, all_closed_trades), title="Closed Trades", border_style="blue"))
 
                 # layout["footer_left"].update(f"[green] OK {ch} x {cw} | {cp.__rich_measure__(console, console.options)[0]} x {cp.__rich_measure__(console, console.options)[1]}")
                 layout["footer_left"].update(f"[green] OK")
             except Exception as e:
+                # traceback.print_exc()
                 layout["footer_left"].update(f"[red] ERROR: {e}")
 
 if __name__ == "__main__":
