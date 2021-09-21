@@ -62,7 +62,9 @@ For simpler TTYs/terminals that cannot display curved symbols, use the `-b` opti
 
 ### Using frogtrade9000
 
-There's not much to say. It uses the Rich library to provide a console view, so there isn't really any decent interactivity as part of that library. However, if the keyboard is working (see below) then you can:
+There's not much to say. The view updates every 5 seconds.
+
+It uses the Rich library to provide a console view, so there isn't really any decent interactivity as part of that library. However, if the keyboard is working (see below) then you can:
 
 - use the number keys to change the top OHCLV chart to whichever open pair your bot is trading, e.g. from the screenshot above, pressing `1` would change the chart to SHIB/USDT. Pressing `0` takes you back to BTC/USDT (or whatever informative pair you've specified in the code).
 - use the letter keys to change the bottom profit chart based on whichever bots you're running, e.g. pressing `B` will take you to the bot running on `192.168.1.77:8082`
