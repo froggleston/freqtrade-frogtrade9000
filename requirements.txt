@@ -4,3 +4,4 @@ ccxt
 python-rapidjson
 keyboard
 rich
+psutil
