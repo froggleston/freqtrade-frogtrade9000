@@ -1,0 +1,21 @@
+--- 
+servers:
+    - name        : "bot1_live"
+      username    : "user"
+      password    : "pass"
+      ip          : 192.168.1.69
+      port        : 8081
+    - name        : "bot2_dry"
+      username    : "user"
+      password    : "pass"
+      ip          : 1.2.3.4
+      port        : 8081
+
+stake_coin: "USDT"
+informative_coin: "BTC"
+
+basic_symbols: False
+exclude_charts: False
+include_sysinfo: True
+include_candle_info: False
+verbose: False
