@@ -98,7 +98,7 @@ if suderp:
         # change chart timeframe
         if key.name == "page up":
             chart_config['current_timeframe'] = next(tfcycle)
-                
+
         #if escape is pressed make listening false and exit
         if key.name == "esc":
             os._exit(0)
@@ -108,25 +108,25 @@ def setup_client(name=None, config_path=None, url=None, port=None, username=None
         config = ftrc.load_config(config_path)
         url = config.get('api_server', {}).get('listen_ip_address', '127.0.0.1')
         port = config.get('api_server', {}).get('listen_port', '8080')
-        
+
         if username is None and password is None:
             username = config.get('api_server', {}).get('username')
             password = config.get('api_server', {}).get('password')
     else:
         if config_path is not None:
             config = ftrc.load_config(config_path)
-            
+
             if username is None and password is None:
                 username = config.get('api_server', {}).get('username')
                 password = config.get('api_server', {}).get('password')
 
     if name is None:
         name = f"{url}:{port}"
-    
+
     server_url = f"http://{url}:{port}"
 
     client = ftrc.FtRestClient(server_url, username, password)
-    
+
     c = client.version()
     if "detail" in c.keys() and (c["detail"] == 'Unauthorized'):
         raise Exception(f"Could not connect to bot [{url}:{port}]: Unauthorised")
@@ -138,10 +138,10 @@ def setup_client(name=None, config_path=None, url=None, port=None, username=None
 
     print(f"Setting up {name} version {c['version']} at {server_url}: {strategy} {bot_state} {runmode}")
     sleep(1)
-    
+
     if url not in uniqclients:
         uniqclients[url] = (client, bot_state, runmode)
-    
+
     return name, (client, bot_state, runmode)
 
 def make_layout(exclude_charts=False, include_sysinfo=False, include_candle_info=False) -> Layout:
@@ -152,7 +152,7 @@ def make_layout(exclude_charts=False, include_sysinfo=False, include_candle_info
         Layout(name="main", ratio=1),
         Layout(name="footer", size=1),
     )
-    
+
     if exclude_charts:
         if include_sysinfo:
             layout["main"].split_row(
@@ -169,7 +169,7 @@ def make_layout(exclude_charts=False, include_sysinfo=False, include_candle_info
             Layout(name="left_side", minimum_size=side_panel_minimum_size),
             Layout(name="right_side", ratio=2),
         )
-        
+
         if include_sysinfo:
             if include_candle_info:
                 layout["right_side"].split(Layout(name="chart1", ratio=2), Layout(name="sys_info"), Layout(name="candle_info"))
@@ -177,7 +177,7 @@ def make_layout(exclude_charts=False, include_sysinfo=False, include_candle_info
                 layout["right_side"].split(Layout(name="chart1"), Layout(name="sys_info"))
         else:
             layout["right_side"].split(Layout(name="chart1"), Layout(name="chart2"))
-    
+
     layout["footer"].split_row(
         Layout(name="footer_clock", size=28),
         Layout(name="footer_left", ratio=2),
@@ -200,8 +200,8 @@ def make_candle_info_layout(exclude_charts=False, include_sysinfo=False) -> Layo
         Layout(name="main", ratio=2),
         Layout(name="candle_info", ratio=1),
         Layout(name="footer", size=1),
-    )    
-    
+    )
+
     if exclude_charts:
         if include_sysinfo:
             layout["main"].split_row(
@@ -213,7 +213,7 @@ def make_candle_info_layout(exclude_charts=False, include_sysinfo=False) -> Layo
                 Layout(name="open", minimum_size=8),
                 Layout(name="closed", minimum_size=7),
             )
-            
+
             layout["right_side"].split(
                 Layout(name="summary"),
                 Layout(name="daily", size=(num_days_daily+7)),
@@ -228,25 +228,25 @@ def make_candle_info_layout(exclude_charts=False, include_sysinfo=False) -> Layo
             Layout(name="left_side", minimum_size=side_panel_minimum_size),
             Layout(name="right_side", ratio=2),
         )
-        
+
         if include_sysinfo:
             layout["right_side"].split(Layout(name="chart1"), Layout(name="sys_info"))
         else:
             layout["right_side"].split(Layout(name="chart1"), Layout(name="chart2"))
-    
+
         layout["left_side"].split(
             Layout(name="open", ratio=2, minimum_size=8),
             Layout(name="closed", ratio=2, minimum_size=7),
             Layout(name="summary"),
             Layout(name="daily", size=(num_days_daily+7)))
-    
+
     layout["footer"].split_row(
         Layout(name="footer_clock", size=28),
         Layout(name="footer_left", ratio=2),
         Layout(name="footer_right", size=62)
     )
 
-    return layout    
+    return layout
 
 # thanks @rextea!
 def fear_index(num_days_daily) -> Panel:
@@ -260,7 +260,7 @@ def fear_index(num_days_daily) -> Panel:
             }
         ]
     }
-    
+
     if not retfear:
         resp = requests.get(f'https://api.alternative.me/fng/?limit={num_days_daily}&date_format=kr')
     else:
@@ -279,47 +279,47 @@ def fear_index(num_days_daily) -> Panel:
     else:
         prev_resp = default_resp
         df_gf = self.prev_resp['data']
-    
+
     colourmap = {}
     colourmap['Extreme Fear'] = '[red]'
     colourmap['Fear'] = '[lightred]'
     colourmap['Neutral'] = '[yellow]'
     colourmap['Greed'] = '[lightgreen]'
     colourmap['Extreme Greed'] = '[green]'
-    
+
     for i in df_gf:
         retfear[i['timestamp']] = f"{colourmap[i['value_classification']]}{i['value_classification']}"
-    
+
     return retfear
-    
+
 def sysinfo(client_dict) -> Panel:
     syslist = []
-    
+
     for n, client in uniqclients.items():
         cl = client[0]
         progress_table = Table.grid(expand=True, pad_edge=True)
-        
+
         progress_cpu = Progress(
             "{task.description}",
             BarColumn(bar_width=None, complete_style=Style(color="red"), finished_style=Style(color="red")),
             TextColumn("[red]{task.percentage:>3.0f}%"),
             expand=True,
         )
-        
+
         progress_ram = Progress(
             "{task.description}",
             BarColumn(bar_width=None, complete_style=Style(color="magenta"), finished_style=Style(color="magenta")),
             TextColumn("[magenta]{task.percentage:>3.0f}%", style=Style(color="magenta")),
             expand=True,
         )
-        
+
         progress_table.add_row(
             progress_cpu,
             progress_ram
         )
 
         si = cl.sysinfo()
-        
+
         if 'cpu_pct' in si:
             for cpux in si['cpu_pct']:
                 cpujob = progress_cpu.add_task("[cyan] CPU")
@@ -337,9 +337,9 @@ def sysinfo(client_dict) -> Panel:
 
 def tradeinfo(client_dict, trades_dict) -> Table:
     yesterday = (datetime.now() - timedelta(days = 1)).strftime("%Y%m%d")
-    
+
     table = Table(expand=True, box=box.HORIZONTALS)
-    
+
     table.add_column("Pair", style="magenta", no_wrap=True)
     table.add_column("Open", no_wrap=True)
     table.add_column("Close", no_wrap=True)
@@ -352,13 +352,13 @@ def tradeinfo(client_dict, trades_dict) -> Table:
     table.add_column("EMA50", style="white", no_wrap=True)
     table.add_column("EMA100", style="white", no_wrap=True)
     table.add_column("EMA200", style="white", no_wrap=True)
-    
+
     shown_pairs = []
-    
+
     for n, client in client_dict.items():
         cl = client[0]
         state = client[1]
-        
+
         if isinstance(cl, ftrc.FtRestClient):
             if state == "running":
                 open_trades = cl.status()
@@ -366,10 +366,10 @@ def tradeinfo(client_dict, trades_dict) -> Table:
                     for t in open_trades:
                         if t['pair'] not in shown_pairs:
                             shown_pairs.append(t['pair'])
-                            
+
                             ## no idea why this error comes up
                             if isinstance(cl, np.float64): return table
-                            
+
                             pairjson = cl.pair_candles(t['pair'], "5m", 1)
                             if pairjson['columns'] and pairjson['data']:
                                 cols = pairjson['columns']
@@ -405,10 +405,10 @@ def tradeinfo(client_dict, trades_dict) -> Table:
 
                 if t['pair'] not in shown_pairs:
                     shown_pairs.append(t['pair'])
-                    
+
                     ## no idea why this error comes up
                     if isinstance(cl, np.float64): return table
-                    
+
                     pairjson = cl.pair_candles(t['pair'], "5m", 1)
                     if pairjson['columns'] and pairjson['data']:
                         cols = pairjson['columns']
@@ -435,9 +435,9 @@ def tradeinfo(client_dict, trades_dict) -> Table:
                             f"{round(pairdf['ema_100'].values[0], 4) if 'ema_100' in pairdf else ''}",
                             f"{round(pairdf['ema_200'].values[0], 4) if 'ema_200' in pairdf else ''}",
                         )
-    
+
     return table
-    
+
 def trades_summary(client_dict) -> Table:
     table = Table(expand=True, box=box.HORIZONTALS, show_footer=True)
 
@@ -449,43 +449,43 @@ def trades_summary(client_dict) -> Table:
     table.add_column("Mean", justify="right")
     table.add_column("Median", justify="right")
     table.add_column("Total", justify="right")
-    
+
     summ = 'A'
     summmap = {}
-    
+
     all_open_profit = 0
     all_profit = 0
     all_wins = 0
     all_losses = 0
-    
+
     for n, client in client_dict.items():
         cl = client[0]
-        
+
         itemcount = 1
         tot_profit = 0
-        
+
         cls = cl.status()
-        
+
         if cls is not None:
             for ot in cl.status():
                 tot_profit = tot_profit + ot['profit_abs']
-            
+
         tp = []
         for at in cl.trades()['trades']:
             tp.append(float(at['profit_abs']))
-        
+
         mean_prof = 0
         median_prof = 0
-        
+
         if len(tp) > 0:
             mean_prof = round(statistics.mean(tp), 2)
             median_prof = round(statistics.median(tp), 2)
-        
+
         t = cl.profit()
         pcc = round(float(t['profit_closed_coin']), 2)
         # coin = t['best_pair'].split('/')[1]
         coin = stake_coin
-        
+
         all_open_profit = all_open_profit + tot_profit
         all_profit = all_profit + pcc
         all_wins = all_wins + t['winning_trades']
@@ -501,22 +501,22 @@ def trades_summary(client_dict) -> Table:
             f"[red]{median_prof} [white]{coin}" if median_prof <= 0 else f"[green]{median_prof} [white]{coin}",
             f"[red]{pcc} [white]{coin}" if pcc <= 0 else f"[green]{pcc} [white]{coin}",
         )
-        
+
         summmap[summ] = n
-        
+
         summ = chr(ord(summ) + 1)
-      
-    table.columns[3].footer = f"[green]{all_wins}/[red]{all_losses}"    
+
+    table.columns[3].footer = f"[green]{all_wins}/[red]{all_losses}"
     table.columns[4].footer = f"[red]{round(all_open_profit, 2)} [white]{coin}" if all_open_profit <= 0 else f"[green]{round(all_open_profit, 2)} [white]{coin}"
     table.columns[7].footer = f"[red]{round(all_profit, 2)} [white]{coin}" if all_profit <= 0 else f"[green]{round(all_profit, 2)} [white]{coin}"
 
     trades_config['summmap'] = summmap
-        
+
     return table
-    
+
 def open_trades_table(client_dict) -> Table:
     table = Table(expand=True, box=box.HORIZONTALS)
-    
+
     table.add_column("#", style="white", no_wrap=True)
     table.add_column("Bot", style="yellow", no_wrap=True)
     table.add_column("Strat", style="cyan")
@@ -524,29 +524,29 @@ def open_trades_table(client_dict) -> Table:
     table.add_column("Profit %", justify="right")
     table.add_column("Profit", justify="right")
     table.add_column("Dur.", justify="right")
-    
+
     current_time = datetime.now(tz=timezone.utc)
-    
+
     ## make sure we include the tzinfo
     fmt = "%Y-%m-%d %H:%M:%S%z"
-    
+
     tradenum = 1
     tmap = {}
-    
+
     for n, client in client_dict.items():
         cl = client[0]
-        
+
         trades = cl.status()
         for t in trades:
             if 'buy_tag' in t.keys():
                 if tradenum == 1:
                     table.add_column("Buy Tag", justify="right")
-            
+
             ## force add the UTC time info
             ttime = datetime.strptime(f"{t['open_date']}+00:00", fmt)
-            
+
             pairstr = t['pair'] + ('*' if (t['open_order_id'] is not None and t['close_rate_requested'] is None) else '') + ('**' if (t['close_rate_requested'] is not None) else '')
-            
+
             if 'buy_tag' in t.keys():
                 table.add_row(
                     f"{tradenum}",
@@ -568,24 +568,24 @@ def open_trades_table(client_dict) -> Table:
                     f"[red]{t['profit_abs']}" if t['profit_abs'] < 0 else f"[green]{t['profit_abs']}",
                     f"{str(current_time-ttime).split('.')[0]}"
                 )
-            
+
             tmap[str(tradenum)] = t['pair']
-            
+
             tradenum = tradenum+1
-    
+
     trades_config['tmap'] = tmap
     trades_config['numopentrades'] = tradenum
-    
+
     return table
 
 def get_all_closed_trades(client_dict) -> dict:
     all_closed_trades = {}
-    
+
     for n, client in client_dict.items():
         cl = client[0]
-        
+
         ps = cl.profit()
-        
+
         if ps is not None:
             num_all_closed_trades = int(ps['closed_trade_count'])
 
@@ -605,35 +605,35 @@ def get_all_closed_trades(client_dict) -> dict:
                     if cltrades is not None and 'trades' in cltrades:
                         clt = cltrades['trades']
                         if clt is not None and len(clt) > 0:
-                            trades.extend(clt)                        
+                            trades.extend(clt)
 
             elif m == 1:
                 cltrades = cl.trades()
                 if cltrades is not None and 'trades' in cltrades:
                     clt = cltrades['trades']
                     if clt is not None and len(clt) > 0:
-                        trades.extend(clt)                    
+                        trades.extend(clt)
 
                 cltrades = cl.trades(offset=500)
                 if cltrades is not None and 'trades' in cltrades:
                     clt = cltrades['trades']
                     if clt is not None and len(clt) > 0:
-                        trades.extend(clt)                    
+                        trades.extend(clt)
             else:
                 cltrades = cl.trades()
                 if cltrades is not None and 'trades' in cltrades:
                     clt = cltrades['trades']
                     if clt is not None and len(clt) > 0:
                         trades = clt
-            
+
             trades.reverse()
             all_closed_trades[n] = trades
-    
+
     return all_closed_trades
 
 def closed_trades_table(client_dict, trades_dict) -> Table:
     table = Table(expand=True, box=box.HORIZONTALS)
-    
+
     table.add_column("ID", style="white", no_wrap=True)
     table.add_column("Bot", style="yellow", no_wrap=True)
     table.add_column("Strat", style="cyan")
@@ -642,12 +642,12 @@ def closed_trades_table(client_dict, trades_dict) -> Table:
     table.add_column("Profit", justify="right")
     table.add_column("Dur.", justify="right")
     table.add_column("Sell", justify="right")
-    
+
     fmt = "%Y-%m-%d %H:%M:%S"
-    
+
     for n, client in client_dict.items():
         cl = client[0]
-        
+
         trades = trades_dict[n]
         if trades is not None:
             for t in trades[:num_closed_trades]:
@@ -673,16 +673,16 @@ def daily_profit_table(client_dict, num_days_daily) -> Table:
 
     table.add_column("Date", style="white", no_wrap=True)
     table.add_column("Fear", style="white", no_wrap=True)
-    
+
     fear = fear_index(num_days_daily)
-    
+
     for n, client in client_dict.items():
         cl = client[0]
         table.add_column(f"{n}", style="yellow", justify="right")
         table.add_column("#", style="cyan", justify="left")
-    
+
     dailydict = {}
-    
+
     for n, client in client_dict.items():
         cl = client[0]
         t = cl.daily(days=num_days_daily)
@@ -692,30 +692,30 @@ def daily_profit_table(client_dict, num_days_daily) -> Table:
             else:
                 dailydict[day['date']].append(f"{round(float(day['abs_profit']),2)} {t['stake_currency']}")
                 dailydict[day['date']].append(f"{day['trade_count']}")
-    
+
     for day, vals in dailydict.items():
         table.add_row(
             *vals
         )
-    
+
     return table
 
 def pair_chart(basic_chart, height=20, width=120, limit=None, timeframe=None, basic_symbols=False):
     basic_chart.set_symbol(chart_config['current_pair'])
     if limit is not None:
         basic_chart.set_limit(limit)
-        
+
     if timeframe is not None:
         basic_chart.set_timeframe(timeframe)
-        
+
     return (chart_config['current_pair'], basic_chart.get_chart_str(height=height, width=width, basic_symbols=basic_symbols))
-    
+
 def profit_chart(basic_chart, all_trades, height=20, width=120, limit=None, basic_symbols=False):
     # t = client.trades()['trades']
     if limit is not None:
         basic_chart.set_limit(limit)
     return basic_chart.get_profit_str(all_trades, height=height, width=width, basic_symbols=basic_symbols)
-    
+
 def get_real_chart_dims(console):
     cdims = console.size
     ch = int(round(cdims.height/2) - header_size)
@@ -730,11 +730,11 @@ class dotdict(dict):
 
 def main():
     parser = argparse.ArgumentParser()
-    
+
     parser.add_argument("-v", "--verbose", action="store_true", help="Verbose debugging mode")
     parser.add_argument("-c", "--config", nargs='?', help="Config to parse")
     parser.add_argument("-y", "--yaml", nargs='?', help="Supply a YAML file instead of command line arguments.")
-    
+
     parser.add_argument("-s", "--servers", nargs='?', help="If you have multiple servers or your config differs from the REST API server URLs, specify each one here with [<name>@]<url>:<port> separated by a comma, e.g. mybotname@my.server:8081,my.server:8082,192.168.0.69:8083")
     parser.add_argument("-t", "--stake_coin", nargs="?", help="Stake coin. Default: USDT")
     parser.add_argument("-i", "--informative_coin", nargs="?", help="Informative coin. Default: BTC")
@@ -742,21 +742,21 @@ def main():
     parser.add_argument("-x", "--exclude_charts", action="store_true", help="Do not draw charts, and expand sidebar to whole window. Default: False")
     parser.add_argument("-f", "--include_sysinfo", action="store_true", help="Include system information. If charts are also excluded, this will take up the full right pane. If not, it will replace the profit chart. Default: False")
     parser.add_argument("-k", "--include_candle_info", action="store_true", help="Include 5m candle information. Default: False")
-    
+
     args = parser.parse_args()
-    
+
     client_dict = {}
-    
+
     config = args.config
 
     print(__doc__)
-    
+
     if args.yaml is not None:
         import yaml
         with open(args.yaml, 'r') as yamlfile:
             args = dotdict(yaml.safe_load(yamlfile))
             args.yaml = True
-    
+
     stake_coin = "USDT"
     if args.stake_coin is not None:
         stake_coin = args.stake_coin
@@ -812,50 +812,50 @@ def main():
 
     if not client_dict:
         raise Exception("No valid clients specified in config or --servers option")
-    
+
     chart_config['current_summary'] = str(list(client_dict.keys())[0])
     chart_config['current_timeframe'] = "5m"
-    
+
     console = Console()
     ch, cw = get_real_chart_dims(console)
 
     pc = bc.BasicCharts(symbol=chart_config['current_pair'], timeframe=chart_config['current_timeframe'], limit=cw)
-    
+
     if args.exclude_charts and args.include_candle_info:
         layout = make_candle_info_layout(exclude_charts=args.exclude_charts, include_sysinfo=args.include_sysinfo)
     else:
         layout = make_layout(exclude_charts=args.exclude_charts, include_sysinfo=args.include_sysinfo, include_candle_info=args.include_candle_info)
-    
+
     if not args.exclude_charts:
         layout["chart1"].update(Panel(Status("Loading...", spinner="line")))
         if not args.include_sysinfo:
             layout["chart2"].update(Panel(Status("Loading...", spinner="line")))
-    
+
     if args.include_sysinfo:
         layout['sys_info'].update(Panel(Status("Loading...", spinner="line"), title="[b]System Information", border_style="magenta"))
-    
+
     if args.include_candle_info:
         import pandas as pd
         import numpy as np
-        
+
         layout['candle_info'].update(Panel(Status("Loading...", spinner="line"), title="[b]Candle Information", border_style="cyan"))
-    
+
     layout["open"].update(Panel(Status("Loading...", spinner="line"), title="Open Trades", border_style="green"))
     layout["summary"].update(Panel(Status("Loading...", spinner="line"), title="Trades Summary", border_style="red"))
     layout["daily"].update(Panel(Status("Loading...", spinner="line"), title="Daily Profit", border_style="yellow"))
     layout["closed"].update(Panel(Status("Loading...", spinner="line"), title="Closed Trades", border_style="blue"))
-    
+
     layout["footer_clock"].update(datetime.now(tz=timezone.utc).ctime().replace(":", "[blink]:[/]") + " UTC")
     layout["footer_left"].update(" | Status: Loading...")
     layout["footer_right"].update(Text("frogtrade9000 by @froggleston [https://github.com/froggleston]", justify="right"))
-    
+
     update_sec = 5
     updatenum = 0
-    
+
     with Live(layout, refresh_per_second=0.33, screen=True):
         if suderp:
             keyboard.on_press(key_press)
-        
+
         while True:
             try:
                 updatenum = updatenum + 1
@@ -864,7 +864,7 @@ def main():
                 if updatenum / update_sec == 1:
                     do_info_panels_update = True
                     updatenum = 0
-                    
+
                 if (do_info_panels_update):
                     all_closed_trades = get_all_closed_trades(client_dict)
 
@@ -875,27 +875,27 @@ def main():
 
                     layout["daily"].update(Panel(daily_profit_table(client_dict, num_days_daily), title="Daily Profit", border_style="yellow", height=(num_days_daily+6)))
                     layout["closed"].update(Panel(closed_trades_table(client_dict, all_closed_trades), title="Closed Trades", border_style="blue"))
-                
+
                     if not args.exclude_charts:
                         spc = pair_chart(pc, height=ch-4, width=cw, limit=cw, timeframe=chart_config['current_timeframe'], basic_symbols=args.basic_symbols)
 
                         layout["chart1"].update(Panel(spc[1], title=f"{spc[0]} [{pc.get_timeframe()}]"))
 
                         if not args.include_sysinfo:
-                            ppc = profit_chart(pc, all_closed_trades[chart_config['current_summary']], height=ch-4, width=cw, basic_symbols=args.basic_symbols)                            
+                            ppc = profit_chart(pc, all_closed_trades[chart_config['current_summary']], height=ch-4, width=cw, basic_symbols=args.basic_symbols)
                             layout["chart2"].update(Panel(ppc, title=f"{chart_config['current_summary']} Cumulative Profit"))
                         else:
                             if args.include_candle_info:
                                 layout["candle_info"].update(Panel(tradeinfo(client_dict, all_closed_trades), title="Recent Buy Info", border_style="cyan"))
                     else:
                         if args.include_candle_info:
-                            layout["candle_info"].update(Panel(tradeinfo(client_dict, all_closed_trades), title="[b]Candle Information", border_style="cyan"))                
-                
+                            layout["candle_info"].update(Panel(tradeinfo(client_dict, all_closed_trades), title="[b]Candle Information", border_style="cyan"))
+
                 layout["open"].update(Panel(open_trades_table(client_dict), title="Open Trades", border_style="green"))
-                
+
                 if args.include_sysinfo:
                     layout["sys_info"].update(sysinfo(client_dict))
-                
+
                 layout["footer_clock"].update(datetime.now(tz=timezone.utc).ctime().replace(":", "[blink]:[/]") + " UTC")
                 layout["footer_left"].update(f" |[green] OK")
             except Exception as e:
@@ -906,7 +906,7 @@ def main():
 if __name__ == "__main__":
     try:
         main()
-  
+
     except Exception as e:
         # traceback.print_exc()
         print("You got frogged: ", e)
