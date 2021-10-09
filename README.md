@@ -16,10 +16,11 @@ If you're intending to copy the scripts into an existing freqtrade folder, you'l
 
 - keyboard
 - rich
+- psutil
 
 #### Standalone
 
-You'll need to activate your venv or use the global python environment, and pip install:
+You'll need to activate your venv or use the global python environment, and `pip install -r requirements.txt` or manually install the following:
 
 - numpy
 - pandas
@@ -27,6 +28,7 @@ You'll need to activate your venv or use the global python environment, and pip 
 - python-rapidjson
 - keyboard
 - rich
+- psutil
 
 ### Installation
 
@@ -41,6 +43,10 @@ You'll need the rest_client.py file from the core freqtrade repo and place it in
 https://github.com/freqtrade/freqtrade/blob/stable/scripts/rest_client.py
 
 ### Running
+
+The easiest way to configure frogtrade9000 is with a YAML file. You can use a YAML file (see `example_frogtrade_config.yaml`) that contains the options you wish to run frogtrade9000 with, including multiple servers:
+
+> ./scripts/frogtrade9000.py -y frogtrade_config.yaml
 
 Running frogtrade9000 with no options will make it look for your `config.json` file and read in the `api_server` stanza from there, picking up the server IP, port, username and password:
 
@@ -57,6 +63,11 @@ The nice thing about frogtrade9000 is that you can monitor multiple bots and str
 For simpler TTYs/terminals that cannot display curved symbols, use the `-b` option to use square edges so plots render correctly:
 
 > ./scripts/frogtrade9000.py -s \[bot1\]user:pass@192.168.1.69:8081,\[bot2\]user:pass@127.0.0.1:8082 -b
+
+Other options include:
+- exclude the pair and profit charts using the `-x` flag
+- include system information from the system that the bot is running on using `-s` (this requires a freqtrade PR to the REST API that is not merged yet, so this isn't functional)
+- include candle information from open trades (freqtrade REST API provides 5m candles) using `-k`
 
 **Note that your password has to be RFC compliant. You can use alphanumeric characters and `- . _ ~ % ! $ & ' ( ) * + , ; =`**
 
