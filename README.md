@@ -1,6 +1,6 @@
-# frogtrade9000 - a command-line Rich client for the freqtrade REST API
+# freqTUI - a terminal command-line Rich client user interface for the freqtrade REST API
 
-I found FreqUI too cumbersome and slow on my Raspberry Pi 400 when running multiple instances of freqtrade bots. So I came up with a python Rich client:
+I found FreqUI too cumbersome and slow on my Raspberry Pi 400 when running multiple instances of freqtrade bots. So I came up with a python Rich client - originally called frogtrade9000 but now renamed and pip installable!
 
 It has very basic interactivity via the keyboard module which has cross-platform issues. I might consider porting this all to prompt-toolkit in the future, but not now.
 
@@ -42,27 +42,36 @@ You need to add a COPY command into your freqtrade dockerfile to copy the script
 You'll need the rest_client.py file from the core freqtrade repo and place it in the same folder that you put these files. Grab it from here:
 https://github.com/freqtrade/freqtrade/blob/stable/scripts/rest_client.py
 
+### Configuration
+
+The easiest way to configure freqTUI is with a YAML file. You can use a YAML file (see `example_frogtrade_config.yaml`) that contains the options you wish to run freqTUI with, including:
+
+- multiple servers in the `servers` config
+- indicators based on those in your strategy, in the `indicators` config - the `colname` property has to match the dataframe column name for the indicator, e.g. 'rsi' for `dataframe['rsi']`, 'macd' for `dataframe['macd']`, etc. You can use the headername property to set a simple name for longer indicator column names, e.g. 'E50' instead of `ema_500`
+- general terminal properties, e.g. the number of rows to show in the Daily Profit table (`num_days_daily`), or the width of the left hand side panels (`side_panel_minimum_size`)
+- number of closed trades to show per strategy (`num_closed_trades`)
+
 ### Running
 
-The easiest way to configure frogtrade9000 is with a YAML file. You can use a YAML file (see `example_frogtrade_config.yaml`) that contains the options you wish to run frogtrade9000 with, including multiple servers:
+The easiest way to run freqTUI is with the YAML file specified in Configuration:
 
-> ./scripts/frogtrade9000.py -y frogtrade_config.yaml
+> ./scripts/freqTUI.py -y frogtrade_config.yaml
 
 Running frogtrade9000 with no options will make it look for your `config.json` file and read in the `api_server` stanza from there, picking up the server IP, port, username and password:
 
-> ./scripts/frogtrade9000.py
+> ./scripts/freqTUI.py
 
 To specify a config use `-c`:
 
-> ./scripts/frogtrade9000.py -c my-other.config.json
+> ./scripts/freqTUI.py -c my-other.config.json
 
 The nice thing about frogtrade9000 is that you can monitor multiple bots and strategies. If you run multiple bots with different IPs/ports use the `-s` flag to manually specify your own botname, the IP and ports and any username/password info of the freqtrade API servers separated by commas:
 
-> ./scripts/frogtrade9000.py -s \[bot1\]user:pass@192.168.1.69:8081,\[bot2\]user:pass@127.0.0.1:8082
+> ./scripts/freqTUI.py -s \[bot1\]user:pass@192.168.1.69:8081,\[bot2\]user:pass@127.0.0.1:8082
 
 For simpler TTYs/terminals that cannot display curved symbols, use the `-b` option to use square edges so plots render correctly:
 
-> ./scripts/frogtrade9000.py -s \[bot1\]user:pass@192.168.1.69:8081,\[bot2\]user:pass@127.0.0.1:8082 -b
+> ./scripts/freqTUI.py -s \[bot1\]user:pass@192.168.1.69:8081,\[bot2\]user:pass@127.0.0.1:8082 -b
 
 Other options include:
 - exclude the pair and profit charts using the `-x` flag
@@ -71,9 +80,9 @@ Other options include:
 
 **Note that your password has to be RFC compliant. You can use alphanumeric characters and `- . _ ~ % ! $ & ' ( ) * + , ; =`**
 
-### Using frogtrade9000
+### Using freqTUI
 
-There's not much to say. The view updates every 5 seconds.
+There's not much to say. The view updates every 5 seconds, except open trades and the sysinfo panels which update every second.
 
 It uses the Rich library to provide a console view, so there isn't really any decent interactivity as part of that library. However, if the keyboard is working (see below) then you can:
 
@@ -83,7 +92,7 @@ It uses the Rich library to provide a console view, so there isn't really any de
 
 ### Known issues
 
-- The `keyboard` module needs root/sudo on Linux to gain access to `/dev/input*`. You can run frogtrade9000 without sudo, but any of the hokey keyboard interactivity will be disabled.
+- The `keyboard` module needs root/sudo on Linux to gain access to `/dev/input*`. You can run freqTUI without sudo, but any of the hokey keyboard interactivity will be disabled.
 - The display flickers on some terminals, e.g. git bash. I can't do anything about that.
 - The exception handling is lame. This needs improvement.
 - A JSON config file would help with more granular bot use and general tool settings, e.g. informative pair as default. I'll get round to this soon.
