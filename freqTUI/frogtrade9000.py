@@ -30,6 +30,9 @@ from time import sleep
 from itertools import cycle
 import requests
 
+import pandas as pd
+import numpy as np
+
 import rest_client as ftrc
 import basic_chart as bc
 
@@ -52,12 +55,12 @@ from rich.text import Text
 from rich.rule import Rule
 
 header_size = 3
-side_panel_minimum_size = 104
+side_panel_minimum_size = 114
 chart_panel_buffer_size = 15
-num_days_daily = 3
+num_days_daily = 5
 
 # number of closed trades to show per bot
-num_closed_trades = 3
+num_closed_trades = 2
 
 informative_coin="BTC"
 stake_coin="USDT"
@@ -68,6 +71,9 @@ trades_config = {}
 chart_config = {}
 uniqclients = {}
 tradeinfolist = []
+
+indicators = [{"colname":"rsi","headername":"RSI","round_val":0}]
+
 retfear = {}
 prev_resp = None
 
@@ -135,16 +141,21 @@ def setup_client(name=None, config_path=None, url=None, port=None, username=None
     bot_state = current_config['state']
     runmode = current_config['runmode']
     strategy = current_config['strategy']
+    stoploss = abs(current_config['stoploss']) * 100
+    max_open_trades = current_config['max_open_trades']
+    stake_amount = current_config['stake_amount']
+
+    stuff = (client, bot_state, runmode, stoploss, max_open_trades, stake_amount)
 
     print(f"Setting up {name} version {c['version']} at {server_url}: {strategy} {bot_state} {runmode}")
     sleep(1)
 
     if url not in uniqclients:
-        uniqclients[url] = (client, bot_state, runmode)
+        uniqclients[url] = stuff
 
-    return name, (client, bot_state, runmode)
+    return name, stuff
 
-def make_layout(exclude_charts=False, include_sysinfo=False, include_candle_info=False) -> Layout:
+def make_layout(exclude_charts=False, include_sysinfo=False, include_candle_info=False, side_panel_minimum_size=114, num_days_daily=5) -> Layout:
     """Define the layout."""
     layout = Layout(name="root")
 
@@ -192,7 +203,7 @@ def make_layout(exclude_charts=False, include_sysinfo=False, include_candle_info
 
     return layout
 
-def make_candle_info_layout(exclude_charts=False, include_sysinfo=False) -> Layout:
+def make_candle_info_layout(exclude_charts=False, include_sysinfo=False, side_panel_minimum_size=114, num_days_daily=5) -> Layout:
     """Define the layout."""
     layout = Layout(name="root")
 
@@ -292,6 +303,28 @@ def fear_index(num_days_daily) -> Panel:
 
     return retfear
 
+def calc_risk(client):
+    cl = client[0]
+    max_open_trades = client[4]
+    stake_amount = client[5]
+
+    bal = cl.balance()
+    avail_bal = 0
+    for b in bal['currencies']:
+        if b['currency'] == stake_coin:
+            avail_bal = b['balance']
+            break
+
+    if stake_amount != "unlimited":
+        max_capit = stake_amount * max_open_trades
+    else:
+        max_capit = avail_bal / max_open_trades
+
+    # risk_per_trade = 2.63 # client[3] ((1520 / 3) / 1520) * 100
+    risk_per_trade = ((max_capit / max_open_trades) / max_capit) * 100
+
+    return -np.round(avail_bal * risk_per_trade / 100, 2)
+
 def sysinfo(client_dict) -> Panel:
     syslist = []
 
@@ -335,23 +368,19 @@ def sysinfo(client_dict) -> Panel:
 
     return Panel(sysinfo_group, title="[b]System Information", border_style="magenta")
 
-def tradeinfo(client_dict, trades_dict) -> Table:
+def tradeinfo(client_dict, trades_dict, indicators) -> Table:
     yesterday = (datetime.now() - timedelta(days = 1)).strftime("%Y%m%d")
 
     table = Table(expand=True, box=box.HORIZONTALS)
 
-    table.add_column("Pair", style="magenta", no_wrap=True)
-    table.add_column("Open", no_wrap=True)
-    table.add_column("Close", no_wrap=True)
-    table.add_column("Volume", no_wrap=True)
-    table.add_column("RSI", style="cyan", no_wrap=True)
-    table.add_column("MFI", style="white", no_wrap=True)
-    table.add_column("BBW", style="blue", no_wrap=True)
-    table.add_column("MSQ", style="yellow", no_wrap=True)
-    table.add_column("EWO", style="green", no_wrap=True)
-    table.add_column("EMA50", style="white", no_wrap=True)
-    table.add_column("EMA100", style="white", no_wrap=True)
-    table.add_column("EMA200", style="white", no_wrap=True)
+    table.add_column("Pair", style="magenta", no_wrap=True, justify="left")
+    table.add_column("Open", no_wrap=True, justify="right")
+    table.add_column("Close", no_wrap=True, justify="right")
+    table.add_column("Volume", no_wrap=True, justify="right")
+
+    for ind in indicators:
+        header_name = ind['headername']
+        table.add_column(header_name, style="cyan", no_wrap=True, justify="left")
 
     shown_pairs = []
 
@@ -359,82 +388,124 @@ def tradeinfo(client_dict, trades_dict) -> Table:
         cl = client[0]
         state = client[1]
 
+        uparrow = "\u2191"
+        downarrow = "\u2193"
+
         if isinstance(cl, ftrc.FtRestClient):
             if state == "running":
                 open_trades = cl.status()
                 if open_trades is not None:
                     for t in open_trades:
                         if t['pair'] not in shown_pairs:
-                            shown_pairs.append(t['pair'])
+                            try:
+                                pairjson = cl.pair_candles(t['pair'], "5m", 2)
+                                shown_pairs.append(t['pair'])
 
-                            ## no idea why this error comes up
-                            if isinstance(cl, np.float64): return table
+                                if pairjson['columns'] and pairjson['data']:
+                                    cols = pairjson['columns']
+                                    data = pairjson['data']
 
-                            pairjson = cl.pair_candles(t['pair'], "5m", 1)
-                            if pairjson['columns'] and pairjson['data']:
-                                cols = pairjson['columns']
-                                data = pairjson['data']
+                                    pairdf = pd.DataFrame(data, columns=cols)
+                                    op = pairdf['open'].values[0]
+                                    cl = pairdf['close'].values[0]
+                                    candle_colour = "[green]"
+                                    if op >= cl:
+                                        candle_colour = "[red]"
 
-                                pairdf = pd.DataFrame(data, columns=cols)
-                                op = pairdf['open'].values[0]
-                                cl = pairdf['close'].values[0]
-                                candle_colour = "[green]"
-                                if op >= cl:
-                                    candle_colour = "[red]"
+                                    inds = []
+                                    inds.append(f"{t['pair']}")
+                                    inds.append(f"{candle_colour}{round(op, 3)}")
+                                    inds.append(f"{candle_colour}{round(cl, 3)}")
+                                    inds.append(f"{int(pairdf['volume'].values[0])}")
 
-                                table.add_row(
-                                    f"{t['pair']}",
-                                    f"{candle_colour}{round(op, 3)}",
-                                    f"{candle_colour}{round(cl, 3)}",
-                                    f"{int(pairdf['volume'].values[0])}",
-                                    f"{round(pairdf['rsi'].values[0], 1) if 'rsi' in pairdf else ''}",
-                                    f"{round(pairdf['mfi'].values[0], 1) if 'mfi' in pairdf else ''}",
-                                    f"{round(pairdf['bb_width'].values[0], 3) if 'bb_width' in pairdf else ''}",
-                                    f"{round(pairdf['msq_normabs'].values[0], 2) if 'msq_normabs' in pairdf else ''}",
-                                    f"{round(pairdf['ewo'].values[0], 2) if 'ewo' in pairdf else ''}",
-                                    f"{round(pairdf['ema_50'].values[0], 4) if 'ema_50' in pairdf else ''}",
-                                    f"{round(pairdf['ema_100'].values[0], 4) if 'ema_100' in pairdf else ''}",
-                                    f"{round(pairdf['ema_200'].values[0], 4) if 'ema_200' in pairdf else ''}",
-                                )
-                                # tc = get_trade_candle(pairdf, t['open_date'], t['pair'], "5m")
+                                    for ind in indicators:
+                                        df_colname = str(ind['colname'])
+                                        round_val = ind['round_val']
+                                        if df_colname in pairdf:
+                                            curr_ind = pairdf[df_colname].values[0]
+                                            prev_ind = pairdf[df_colname].values[1]
+
+                                            trend = ""
+                                            if prev_ind > curr_ind:
+                                                trend = f"[red]{downarrow} "
+                                            elif prev_ind < curr_ind:
+                                                trend = f"[green]{uparrow} "
+                                            else:
+                                                trend = "[cyan]- "
+
+                                            if round_val == 0:
+                                                dval = int(curr_ind)
+                                            else:
+                                                dval = round(curr_ind, round_val)
+                                            inds.append(f"{trend}[white]{dval}")
+                                        else:
+                                            inds.append("")
+
+                                    table.add_row(
+                                        *inds
+                                    )
+                            except Exception as e:
+                                ## noone likes exceptions
+                                #print(e)
+                                pass
 
             closed_trades = trades_dict[n]
-            do_stuff = False
+            do_stuff = True
             if closed_trades is not None and do_stuff == True:
                 t = closed_trades[0]
 
                 if t['pair'] not in shown_pairs:
-                    shown_pairs.append(t['pair'])
+                    try:
+                        pairjson = cl.pair_candles(t['pair'], "5m", 2)
+                        shown_pairs.append(t['pair'])
 
-                    ## no idea why this error comes up
-                    if isinstance(cl, np.float64): return table
+                        if pairjson['columns'] and pairjson['data']:
+                            cols = pairjson['columns']
+                            data = pairjson['data']
 
-                    pairjson = cl.pair_candles(t['pair'], "5m", 1)
-                    if pairjson['columns'] and pairjson['data']:
-                        cols = pairjson['columns']
-                        data = pairjson['data']
+                            pairdf = pd.DataFrame(data, columns=cols)
+                            op = pairdf['open'].values[0]
+                            cl = pairdf['close'].values[0]
+                            candle_colour = "[green]"
+                            if op >= cl:
+                                candle_colour = "[red]"
 
-                        pairdf = pd.DataFrame(data, columns=cols)
-                        op = pairdf['open'].values[0]
-                        cl = pairdf['close'].values[0]
-                        candle_colour = "[green]"
-                        if op >= cl:
-                            candle_colour = "[red]"
+                            inds = []
+                            inds.append(f"{t['pair']}")
+                            inds.append(f"{candle_colour}{round(op, 3)}")
+                            inds.append(f"{candle_colour}{round(cl, 3)}")
+                            inds.append(f"{int(pairdf['volume'].values[0])}")
 
-                        table.add_row(
-                            f"{t['pair']}",
-                            f"{candle_colour}{round(op, 3)}",
-                            f"{candle_colour}{round(cl, 3)}",
-                            f"{int(pairdf['volume'].values[0])}",
-                            f"{round(pairdf['rsi'].values[0], 1) if 'rsi' in pairdf else ''}",
-                            f"{round(pairdf['mfi'].values[0], 1) if 'mfi' in pairdf else ''}",
-                            f"{round(pairdf['bb_width'].values[0], 3) if 'bb_width' in pairdf else ''}",
-                            f"{round(pairdf['msq_normabs'].values[0], 2) if 'msq_normabs' in pairdf else ''}",
-                            f"{round(pairdf['ewo'].values[0], 2) if 'ewo' in pairdf else ''}",
-                            f"{round(pairdf['ema_50'].values[0], 4) if 'ema_50' in pairdf else ''}",
-                            f"{round(pairdf['ema_100'].values[0], 4) if 'ema_100' in pairdf else ''}",
-                            f"{round(pairdf['ema_200'].values[0], 4) if 'ema_200' in pairdf else ''}",
-                        )
+                            for ind in indicators:
+                                df_colname = str(ind['colname'])
+                                round_val = ind['round_val']
+                                if df_colname in pairdf:
+                                    curr_ind = pairdf[df_colname].values[0]
+                                    prev_ind = pairdf[df_colname].values[1]
+
+                                    trend = ""
+                                    if prev_ind > curr_ind:
+                                        trend = f"[red]{downarrow} "
+                                    elif prev_ind < curr_ind:
+                                        trend = f"[green]{uparrow} "
+                                    else:
+                                        trend = "[cyan]- "
+
+                                    if round_val == 0:
+                                        dval = int(curr_ind)
+                                    else:
+                                        dval = round(curr_ind, round_val)
+                                    inds.append(f"{trend}[white]{dval}")
+                                else:
+                                    inds.append("")
+
+                            table.add_row(
+                                *inds
+                            )
+                    except Exception as e:
+                        ## noone likes exceptions
+                        #print(e)
+                        pass
 
     return table
 
@@ -443,12 +514,15 @@ def trades_summary(client_dict) -> Table:
 
     table.add_column("#", style="white", no_wrap=True)
     table.add_column("Bot", style="yellow", no_wrap=True)
-    table.add_column("# Trades")
-    table.add_column("W/L", justify="right")
-    table.add_column("Open Profit", style="blue", justify="right")
-    table.add_column("Mean", justify="right")
-    table.add_column("Median", justify="right")
-    table.add_column("Total", justify="right")
+    table.add_column("# Trades", no_wrap=True)
+    table.add_column("Open Profit", style="blue", justify="right", no_wrap=True)
+    table.add_column("W/L", justify="right", no_wrap=True)
+    table.add_column("Winrate", justify="right", no_wrap=True)
+    table.add_column("Exp.", justify="right", no_wrap=True)
+    table.add_column("Exp. Rate", justify="right", no_wrap=True)
+    table.add_column("Med. W", justify="right", no_wrap=True)
+    table.add_column("Med. L", justify="right", no_wrap=True)
+    table.add_column("Total", justify="right", no_wrap=True)
 
     summ = 'A'
     summmap = {}
@@ -465,23 +539,59 @@ def trades_summary(client_dict) -> Table:
         tot_profit = 0
 
         cls = cl.status()
-
         if cls is not None:
             for ot in cl.status():
                 tot_profit = tot_profit + ot['profit_abs']
 
+        risk = calc_risk(client)
+
         tp = []
+        tpw = []
+        tpl = []
         for at in cl.trades()['trades']:
-            tp.append(float(at['profit_abs']))
+            profit = float(at['profit_abs'])
+            tp.append(profit)
+            if profit > 0:
+                tpw.append(profit)
+            else:
+                tpl.append(abs(profit))
 
         mean_prof = 0
+        mean_prof_w = 0
+        mean_prof_l = 0
         median_prof = 0
 
         if len(tp) > 0:
             mean_prof = round(statistics.mean(tp), 2)
-            median_prof = round(statistics.median(tp), 2)
+
+        if len(tpw) > 0:
+            mean_prof_w = round(statistics.mean(tpw), 2)
+            median_win = round(statistics.median(tpw), 2)
+        else:
+            mean_prof_w = 0
+            median_win = 0
+
+        if len(tpl) > 0:
+            mean_prof_l = round(statistics.mean(tpl), 2)
+            median_loss = round(statistics.median(tpl), 2)
+        else:
+            mean_prof_l = 0
+            median_loss = 0
+
+        winrate = (len(tpw) / (len(tpw) + len(tpl))) * 100
+        loserate = 100 - winrate
+
+        expectancy = 1
+        if mean_prof_w > 0 and mean_prof_l > 0:
+            expectancy = (1 + (mean_prof_w / mean_prof_l)) * (winrate / 100) - 1
+        else:
+            if mean_prof_w == 0:
+                expectancy = 0
+
+        expectancy_rate = ((winrate/100) * mean_prof_w) - ((loserate/100) * mean_prof_l)
 
         t = cl.profit()
+
         pcc = round(float(t['profit_closed_coin']), 2)
         # coin = t['best_pair'].split('/')[1]
         coin = stake_coin
@@ -495,20 +605,24 @@ def trades_summary(client_dict) -> Table:
             f"{summ}",
             f"{n}",
             f"[cyan]{int(t['trade_count'])-int(t['closed_trade_count'])}[white]/[magenta]{t['closed_trade_count']}",
+            f"[red]{round(tot_profit, 2)}" if tot_profit <= 0 else f"[green]{round(tot_profit, 2)}",            
             f"[green]{t['winning_trades']}/[red]{t['losing_trades']}",
-            f"[red]{round(tot_profit, 2)} [white]{coin}" if tot_profit <= 0 else f"[green]{round(tot_profit, 2)} [white]{coin}",
-            f"[red]{mean_prof} [white]{coin}" if mean_prof <= 0 else f"[green]{mean_prof} [white]{coin}",
-            f"[red]{median_prof} [white]{coin}" if median_prof <= 0 else f"[green]{median_prof} [white]{coin}",
-            f"[red]{pcc} [white]{coin}" if pcc <= 0 else f"[green]{pcc} [white]{coin}",
+            f"[cyan]{round(winrate, 1)}",
+            f"[magenta]{round(expectancy, 2)}",
+            f"[red]{round(expectancy_rate, 2)}" if expectancy_rate <= 0 else f"[green]{round(expectancy_rate, 2)}",
+            # f"[red]{mean_prof}" if mean_prof <= 0 else f"[green]{mean_prof}",
+            f"[green]{median_win}",
+            f"[red]{median_loss}",
+            f"[red]{pcc}" if pcc <= 0 else f"[green]{pcc}",
         )
 
         summmap[summ] = n
 
         summ = chr(ord(summ) + 1)
 
-    table.columns[3].footer = f"[green]{all_wins}/[red]{all_losses}"
-    table.columns[4].footer = f"[red]{round(all_open_profit, 2)} [white]{coin}" if all_open_profit <= 0 else f"[green]{round(all_open_profit, 2)} [white]{coin}"
-    table.columns[7].footer = f"[red]{round(all_profit, 2)} [white]{coin}" if all_profit <= 0 else f"[green]{round(all_profit, 2)} [white]{coin}"
+    table.columns[3].footer = f"[red]{round(all_open_profit, 2)}" if all_open_profit <= 0 else f"[green]{round(all_open_profit, 2)}"
+    table.columns[4].footer = f"[green]{all_wins}/[red]{all_losses}"
+    table.columns[10].footer = f"[red]{round(all_profit, 2)}" if all_profit <= 0 else f"[green]{round(all_profit, 2)}"
 
     trades_config['summmap'] = summmap
 
@@ -544,7 +658,6 @@ def open_trades_table(client_dict) -> Table:
 
             ## force add the UTC time info
             ttime = datetime.strptime(f"{t['open_date']}+00:00", fmt)
-
             pairstr = t['pair'] + ('*' if (t['open_order_id'] is not None and t['close_rate_requested'] is None) else '') + ('**' if (t['close_rate_requested'] is not None) else '')
 
             if 'buy_tag' in t.keys():
@@ -570,7 +683,6 @@ def open_trades_table(client_dict) -> Table:
                 )
 
             tmap[str(tradenum)] = t['pair']
-
             tradenum = tradenum+1
 
     trades_config['tmap'] = tmap
@@ -585,7 +697,6 @@ def get_all_closed_trades(client_dict) -> dict:
         cl = client[0]
 
         ps = cl.profit()
-
         if ps is not None:
             num_all_closed_trades = int(ps['closed_trade_count'])
 
@@ -682,7 +793,6 @@ def daily_profit_table(client_dict, num_days_daily) -> Table:
         table.add_column("#", style="cyan", justify="left")
 
     dailydict = {}
-
     for n, client in client_dict.items():
         cl = client[0]
         t = cl.daily(days=num_days_daily)
@@ -730,11 +840,9 @@ class dotdict(dict):
 
 def main():
     parser = argparse.ArgumentParser()
-
     parser.add_argument("-v", "--verbose", action="store_true", help="Verbose debugging mode")
     parser.add_argument("-c", "--config", nargs='?', help="Config to parse")
     parser.add_argument("-y", "--yaml", nargs='?', help="Supply a YAML file instead of command line arguments.")
-
     parser.add_argument("-s", "--servers", nargs='?', help="If you have multiple servers or your config differs from the REST API server URLs, specify each one here with [<name>@]<url>:<port> separated by a comma, e.g. mybotname@my.server:8081,my.server:8082,192.168.0.69:8083")
     parser.add_argument("-t", "--stake_coin", nargs="?", help="Stake coin. Default: USDT")
     parser.add_argument("-i", "--informative_coin", nargs="?", help="Informative coin. Default: BTC")
@@ -757,6 +865,15 @@ def main():
             args = dotdict(yaml.safe_load(yamlfile))
             args.yaml = True
 
+    if args.side_panel_minimum_size is not None:
+        side_panel_minimum_size = args.side_panel_minimum_size
+
+    if args.num_days_daily is not None:
+        num_days_daily = args.num_days_daily
+
+    if args.num_closed_trades is not None:
+        num_closed_trades = args.num_closed_trades
+
     stake_coin = "USDT"
     if args.stake_coin is not None:
         stake_coin = args.stake_coin
@@ -770,6 +887,8 @@ def main():
 
     if args.servers is not None:
         if args.yaml:
+            indicators = args.indicators
+
             for s in args.servers:
                 try:
                     if config is not None:
@@ -822,9 +941,9 @@ def main():
     pc = bc.BasicCharts(symbol=chart_config['current_pair'], timeframe=chart_config['current_timeframe'], limit=cw)
 
     if args.exclude_charts and args.include_candle_info:
-        layout = make_candle_info_layout(exclude_charts=args.exclude_charts, include_sysinfo=args.include_sysinfo)
+        layout = make_candle_info_layout(exclude_charts=args.exclude_charts, include_sysinfo=args.include_sysinfo, side_panel_minimum_size=side_panel_minimum_size, num_days_daily=num_days_daily)
     else:
-        layout = make_layout(exclude_charts=args.exclude_charts, include_sysinfo=args.include_sysinfo, include_candle_info=args.include_candle_info)
+        layout = make_layout(exclude_charts=args.exclude_charts, include_sysinfo=args.include_sysinfo, include_candle_info=args.include_candle_info, side_panel_minimum_size=side_panel_minimum_size, num_days_daily=num_days_daily)
 
     if not args.exclude_charts:
         layout["chart1"].update(Panel(Status("Loading...", spinner="line")))
@@ -835,16 +954,12 @@ def main():
         layout['sys_info'].update(Panel(Status("Loading...", spinner="line"), title="[b]System Information", border_style="magenta"))
 
     if args.include_candle_info:
-        import pandas as pd
-        import numpy as np
-
         layout['candle_info'].update(Panel(Status("Loading...", spinner="line"), title="[b]Candle Information", border_style="cyan"))
 
     layout["open"].update(Panel(Status("Loading...", spinner="line"), title="Open Trades", border_style="green"))
     layout["summary"].update(Panel(Status("Loading...", spinner="line"), title="Trades Summary", border_style="red"))
     layout["daily"].update(Panel(Status("Loading...", spinner="line"), title="Daily Profit", border_style="yellow"))
     layout["closed"].update(Panel(Status("Loading...", spinner="line"), title="Closed Trades", border_style="blue"))
-
     layout["footer_clock"].update(datetime.now(tz=timezone.utc).ctime().replace(":", "[blink]:[/]") + " UTC")
     layout["footer_left"].update(" | Status: Loading...")
     layout["footer_right"].update(Text("frogtrade9000 by @froggleston [https://github.com/froggleston]", justify="right"))
@@ -882,14 +997,14 @@ def main():
                         layout["chart1"].update(Panel(spc[1], title=f"{spc[0]} [{pc.get_timeframe()}]"))
 
                         if not args.include_sysinfo:
-                            ppc = profit_chart(pc, all_closed_trades[chart_config['current_summary']], height=ch-4, width=cw, basic_symbols=args.basic_symbols)
+                            ppc = profit_chart(pc, all_closed_trades[chart_config['current_summary']], height=ch-4, width=cw, basic_symbols=args.basic_symbols)                            
                             layout["chart2"].update(Panel(ppc, title=f"{chart_config['current_summary']} Cumulative Profit"))
                         else:
                             if args.include_candle_info:
-                                layout["candle_info"].update(Panel(tradeinfo(client_dict, all_closed_trades), title="Recent Buy Info", border_style="cyan"))
+                                layout["candle_info"].update(Panel(tradeinfo(client_dict, all_closed_trades, indicators), title="Recent Buy Info", border_style="cyan"))
                     else:
                         if args.include_candle_info:
-                            layout["candle_info"].update(Panel(tradeinfo(client_dict, all_closed_trades), title="[b]Candle Information", border_style="cyan"))
+                            layout["candle_info"].update(Panel(tradeinfo(client_dict, all_closed_trades, indicators), title="[b]Candle Information", border_style="cyan"))                
 
                 layout["open"].update(Panel(open_trades_table(client_dict), title="Open Trades", border_style="green"))
 
