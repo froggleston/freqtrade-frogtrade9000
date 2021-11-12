@@ -54,14 +54,6 @@ from rich.table import Table
 from rich.text import Text
 from rich.rule import Rule
 
-header_size = 3
-side_panel_minimum_size = 114
-chart_panel_buffer_size = 15
-num_days_daily = 5
-
-# number of closed trades to show per bot
-num_closed_trades = 2
-
 informative_coin="BTC"
 stake_coin="USDT"
 timeframes = ["15m", "1h", "4h", "1m", "5m"]
@@ -754,7 +746,7 @@ def get_all_closed_trades(client_dict) -> dict:
     
     return all_closed_trades
 
-def closed_trades_table(client_dict, trades_dict) -> Table:
+def closed_trades_table(client_dict, trades_dict, num_closed_trades) -> Table:
     table = Table(expand=True, box=box.HORIZONTALS)
     
     table.add_column("ID", style="white", no_wrap=True)
@@ -839,7 +831,7 @@ def profit_chart(basic_chart, all_trades, height=20, width=120, limit=None, basi
         basic_chart.set_limit(limit)
     return basic_chart.get_profit_str(all_trades, height=height, width=width, basic_symbols=basic_symbols)
     
-def get_real_chart_dims(console):
+def get_real_chart_dims(console, header_size, side_panel_minimum_size, chart_panel_buffer_size=0):
     cdims = console.size
     ch = int(round(cdims.height/2) - header_size)
     cw = int(round(cdims.width - side_panel_minimum_size - chart_panel_buffer_size))
@@ -880,17 +872,25 @@ def main():
             args = dotdict(yaml.safe_load(yamlfile))
             args.yaml = True
     
-    side_panel_minimum_size = 114
+    if args.header_size is not None:
+        header_size = args.header_size
+    else:
+        header_size = 3
+    
     if args.side_panel_minimum_size is not None:
         side_panel_minimum_size = args.side_panel_minimum_size
+    else:
+        side_panel_minimum_size = 114
     
-    num_days_daily = 5
     if args.num_days_daily is not None:
         num_days_daily = args.num_days_daily
+    else:
+        num_days_daily = 5
 
-    num_closed_trades = 2
     if args.num_closed_trades is not None:
         num_closed_trades = args.num_closed_trades
+    else:
+        num_closed_trades = 2
     
     stake_coin = "USDT"
     if args.stake_coin is not None:
@@ -954,7 +954,7 @@ def main():
     chart_config['current_timeframe'] = "5m"
     
     console = Console()
-    ch, cw = get_real_chart_dims(console)
+    ch, cw = get_real_chart_dims(console, header_size, side_panel_minimum_size)
 
     pc = bc.BasicCharts(symbol=chart_config['current_pair'], timeframe=chart_config['current_timeframe'], limit=cw)
     
@@ -1002,13 +1002,13 @@ def main():
                 if (do_info_panels_update):
                     all_closed_trades = get_all_closed_trades(client_dict)
 
-                    ch, cw = get_real_chart_dims(console)
+                    ch, cw = get_real_chart_dims(console, header_size, side_panel_minimum_size)
 
                     layout["summary"].size = 7+len(client_dict.items())
                     layout["summary"].update(Panel(trades_summary(client_dict), title="Trades Summary", border_style="red", height=7+len(client_dict.items())))
 
                     layout["daily"].update(Panel(daily_profit_table(client_dict, num_days_daily), title="Daily Profit", border_style="yellow", height=(num_days_daily+6)))
-                    layout["closed"].update(Panel(closed_trades_table(client_dict, all_closed_trades), title="Closed Trades", border_style="blue"))
+                    layout["closed"].update(Panel(closed_trades_table(client_dict, all_closed_trades, num_closed_trades), title="Closed Trades", border_style="blue"))
                 
                     if not args.exclude_charts:
                         spc = pair_chart(pc, height=ch-4, width=cw, limit=cw, timeframe=chart_config['current_timeframe'], basic_symbols=args.basic_symbols)
