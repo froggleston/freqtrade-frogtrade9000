@@ -872,22 +872,22 @@ def main():
             args = dotdict(yaml.safe_load(yamlfile))
             args.yaml = True
     
-    if args.header_size is not None:
+    if "header_size" in args and args.header_size is not None:
         header_size = args.header_size
     else:
         header_size = 3
     
-    if args.side_panel_minimum_size is not None:
+    if "side_panel_minimum_size" in args and args.side_panel_minimum_size is not None:
         side_panel_minimum_size = args.side_panel_minimum_size
     else:
         side_panel_minimum_size = 114
     
-    if args.num_days_daily is not None:
+    if "num_days_daily" in args and args.num_days_daily is not None:
         num_days_daily = args.num_days_daily
     else:
         num_days_daily = 5
 
-    if args.num_closed_trades is not None:
+    if "num_closed_trades" in args and args.num_closed_trades is not None:
         num_closed_trades = args.num_closed_trades
     else:
         num_closed_trades = 2
