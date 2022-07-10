@@ -309,12 +309,11 @@ def calc_risk(client):
     if max_open_trades > 0:
         max_capit = 0
         if stake_amount != "unlimited":
-            max_capit = stake_amount * max_open_trades
+            max_capit = float(stake_amount * max_open_trades)
         else:
-            max_capit = avail_bal / max_open_trades
+            max_capit = float(avail_bal / max_open_trades)
 
-        if max_capit != 0:
-            # risk_per_trade = 2.63 # client[3] ((1520 / 3) / 1520) * 100
+        if max_capit > 0:
             risk_per_trade = ((max_capit / max_open_trades) / max_capit) * 100
             return -np.round(avail_bal * risk_per_trade / 100, 2)
         else:
