@@ -643,7 +643,8 @@ def open_trades_table(client_dict) -> Table:
     table.add_column("Profit %", justify="right")
     table.add_column("Profit", justify="right")
     table.add_column("Dur.", justify="right")
-    
+    table.add_column("S/L", justify="center")
+
     current_time = datetime.now(tz=timezone.utc)
     
     ## make sure we include the tzinfo
@@ -665,7 +666,8 @@ def open_trades_table(client_dict) -> Table:
             ttime = datetime.strptime(f"{t['open_date']}+00:00", fmt)
             
             pairstr = t['pair'] + ('*' if (t['open_order_id'] is not None and t['close_rate_requested'] is None) else '') + ('**' if (t['close_rate_requested'] is not None) else '')
-            
+            t_dir = "S" if t['is_short'] else "L"
+
             if 'buy_tag' in t.keys():
                 table.add_row(
                     f"{tradenum}",
@@ -675,7 +677,8 @@ def open_trades_table(client_dict) -> Table:
                     f"[red]{t['profit_pct']}" if t['profit_pct'] <= 0 else f"[green]{t['profit_pct']}",
                     f"[red]{round(t['profit_abs'], 2)}" if t['profit_abs'] < 0 else f"[green]{round(t['profit_abs'], 2)}",
                     f"{str(current_time-ttime).split('.')[0]}",
-                    f"{t['buy_tag']}"
+                    f"{t_dir}",
+                    f"{t['buy_tag']}",
                 )
             else:
                 table.add_row(
@@ -685,7 +688,8 @@ def open_trades_table(client_dict) -> Table:
                     f"{pairstr}",
                     f"[red]{t['profit_pct']}" if t['profit_pct'] <= 0 else f"[green]{t['profit_pct']}",
                     f"[red]{t['profit_abs']}" if t['profit_abs'] < 0 else f"[green]{t['profit_abs']}",
-                    f"{str(current_time-ttime).split('.')[0]}"
+                    f"{str(current_time-ttime).split('.')[0]}",
+                    f"{t_dir}",
                 )
             
             tmap[str(tradenum)] = t['pair']
@@ -767,23 +771,24 @@ def closed_trades_table(client_dict, trades_dict, num_closed_trades) -> Table:
     for n, client in client_dict.items():
         cl = client[0]
         
-        trades = trades_dict[n]
-        if trades is not None:
-            for t in trades[:num_closed_trades]:
-                otime = datetime.strptime(t['open_date'], fmt).astimezone(tz=timezone.utc)
-                ctime = datetime.strptime(t['close_date'], fmt).astimezone(tz=timezone.utc)
-                rpfta = round(float(t['profit_abs']), 2)
+        if trades_dict:
+            trades = trades_dict[n]
+            if trades is not None:
+                for t in trades[:num_closed_trades]:
+                    otime = datetime.strptime(t['open_date'], fmt).astimezone(tz=timezone.utc)
+                    ctime = datetime.strptime(t['close_date'], fmt).astimezone(tz=timezone.utc)
+                    rpfta = round(float(t['profit_abs']), 2)
 
-                table.add_row(
-                    f"{t['trade_id']}",
-                    f"{n}",
-                    f"{t['strategy']}",
-                    f"{t['pair']}",
-                    f"[red]{t['profit_pct']}" if t['profit_pct'] <= 0 else f"[green]{t['profit_pct']}",
-                    f"[red]{rpfta}" if rpfta <= 0 else f"[green]{rpfta}",
-                    f"{str(ctime-otime).split('.')[0]}",
-                    f"{t['sell_reason']}"
-                )
+                    table.add_row(
+                        f"{t['trade_id']}",
+                        f"{n}",
+                        f"{t['strategy']}",
+                        f"{t['pair']}",
+                        f"[red]{t['profit_pct']}" if t['profit_pct'] <= 0 else f"[green]{t['profit_pct']}",
+                        f"[red]{rpfta}" if rpfta <= 0 else f"[green]{rpfta}",
+                        f"{str(ctime-otime).split('.')[0]}",
+                        f"{t['sell_reason']}"
+                    )
 
     return table
 
