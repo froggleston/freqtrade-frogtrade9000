@@ -1049,7 +1049,8 @@ def main():
 if __name__ == "__main__":
     try:
         main()
-  
+
     except Exception as e:
         # traceback.print_exc()
-        print("You got frogged: ", e)
+        print()
+        print("You got frogged:\n{} => '{}'".format(e, e.__cause__))
