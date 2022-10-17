@@ -946,7 +946,7 @@ def main():
                             name, client = setup_client(name=botname, url=url, port=port, username=suser, password=spass)
                         client_dict[name] = client
                     except Exception as e:
-                        raise RuntimeError('Cannot create freqtrade client') from e
+                        raise RuntimeError("Cannot create freqtrade client") from e
                 else:
                     raise Exception("Cannot parse server option. Please use [name]user:pass@servername:port")
     elif config is not None:
