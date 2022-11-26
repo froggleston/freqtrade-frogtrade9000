@@ -40,7 +40,10 @@ You need to add a COPY command into your freqtrade dockerfile to copy the script
 
 #### Standalone
 You'll need the rest_client.py file from the core freqtrade repo and place it in the same folder that you put these files. Grab it from here:
-https://github.com/freqtrade/freqtrade/blob/stable/scripts/rest_client.py
+https://github.com/freqtrade/freqtrade/blob/stable/scripts/rest_client.py or
+
+`wget https://raw.githubusercontent.com/freqtrade/freqtrade/stable/scripts/rest_client.py`
+
 
 ### Running
 
