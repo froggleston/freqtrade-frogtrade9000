@@ -59,6 +59,7 @@ stake_coin="USDT"
 timeframes = ["15m", "1h", "4h", "1m", "5m"]
 tfcycle = cycle(timeframes)
 
+tags_config = {}
 trades_config = {}
 chart_config = {}
 uniqclients = {}
@@ -73,6 +74,8 @@ prev_resp = None
 suderp = (sys.platform != "linux") or (sys.platform == "linux" and os.geteuid() == 0)
 
 urlre = "^\[([a-zA-Z0-9]+)\]*([a-zA-Z0-9\-._~%!$&'()*+,;=]+)?:([ a-zA-Z0-9\-._~%!$&'()*+,;=]+)@?([a-z0-9\-._~%]+|\[[a-f0-9:.]+\]|\[v[a-f0-9][a-z0-9\-._~%!$&'()*+,;=:]+\]):([0-9]+)?"
+dfmt = "%Y-%m-%d %H:%M:%S"
+
 if suderp:
     import keyboard
 
@@ -85,9 +88,16 @@ if suderp:
             if key.name in tmap:
                 chart_config['current_pair'] = tmap[key.name]
 
-        # change profit chart
+        # change profit chart and tag summary by bot
         if re.match("^([a-zA-Z]+)$", key.name):
             kn = key.name.upper()
+
+            # change tag summary table
+            tagsumm = tags_config['summmap']
+            if kn in tagsumm:
+                tags_config['current_summary'] = tagsumm[kn]
+
+            # change profit chart
             summmap = trades_config['summmap']
             if kn in summmap:
                 chart_config['current_summary'] = summmap[kn]
@@ -146,7 +156,7 @@ def setup_client(name=None, config_path=None, url=None, port=None, username=None
     
     return name, stuff
 
-def make_layout(exclude_charts=False, include_sysinfo=False, include_candle_info=False, side_panel_minimum_size=114, num_days_daily=5) -> Layout:
+def make_layout(exclude_charts=False, include_sysinfo=False, include_candle_info=False, include_tag_summary=False, side_panel_minimum_size=114, num_days_daily=5) -> Layout:
     """Define the layout."""
     layout = Layout(name="root")
 
@@ -156,12 +166,14 @@ def make_layout(exclude_charts=False, include_sysinfo=False, include_candle_info
     )
     
     if exclude_charts:
-        if include_sysinfo:
+        if include_sysinfo or include_tag_summary:
             layout["main"].split_row(
                 Layout(name="left_side", minimum_size=side_panel_minimum_size),
-                Layout(name="sys_info", ratio=2),
+                Layout(name="right_side", ratio=2),
             )
-            # layout["sys_info"].split(Layout(name="sys_side", ratio=2), Layout(name="sys_body"))
+
+            if include_sysinfo and include_tag_summary:
+                layout["right_side"].split(Layout(name="sys_info"), Layout(name="tag_summary"))
         else:
             layout["main"].split_row(
                 Layout(name="left_side"),
@@ -194,7 +206,7 @@ def make_layout(exclude_charts=False, include_sysinfo=False, include_candle_info
 
     return layout
 
-def make_candle_info_layout(exclude_charts=False, include_sysinfo=False, side_panel_minimum_size=114, num_days_daily=5) -> Layout:
+def make_candle_info_layout(exclude_charts=False, include_sysinfo=False, include_tag_summary=False, side_panel_minimum_size=114, num_days_daily=5) -> Layout:
     """Define the layout."""
     layout = Layout(name="root")
 
@@ -506,7 +518,91 @@ def tradeinfo(client_dict, trades_dict, indicators) -> Table:
                         pass
     
     return table
+
+def enter_tag_summary(client_dict) -> Table:
+    taglist = []
+
+    summ = 'A'
+    summmap = {}
+
+    for n, client in client_dict.items():
+        cl = client[0]
+        
+        table = Table(expand=True, box=box.HORIZONTALS, show_footer=False)
+
+        table.add_column("Bot", style="yellow", no_wrap=True)
+        table.add_column("Tag", style="white", justify="left", no_wrap=True)
+        table.add_column("W/L", no_wrap=True)
+        table.add_column("Avg Dur", justify="right", no_wrap=True)
+        table.add_column("Avg Win Dur", justify="right", no_wrap=True)
+        table.add_column("Avg Loss Dur", justify="right", no_wrap=True)
+        table.add_column("Profit", justify="right", no_wrap=True)
+
+        # get dict of bot to trades
+        trades_by_tag = {}
+
+        for at in cl.trades()['trades']:
+            if at['enter_tag'] not in trades_by_tag:
+                trades_by_tag[at['enter_tag']] = []
+            
+            trades_by_tag[at['enter_tag']].append(at)
+
+        for tag, trades in trades_by_tag.items():
+            t_profit = 0.0
+            
+            tot_trade_dur = 0
+            avg_win_trade_dur = 0
+            avg_loss_trade_dur = 0
+            win_trade_dur = 0
+            num_win = 0
+            loss_trade_dur = 0
+            num_loss = 0
+
+            for t in trades:
+                profit = float(t['profit_abs'])
+                t_profit += profit
+                tdur = (datetime.strptime(t['close_date'], dfmt) - datetime.strptime(t['open_date'], dfmt)).total_seconds()
+                tot_trade_dur = tot_trade_dur + tdur
+                
+                if profit > 0:
+                    win_trade_dur = win_trade_dur + tdur
+                    num_win = num_win + 1
+                else:
+                    loss_trade_dur = loss_trade_dur + tdur
+                    num_loss = num_loss + 1
+
+            t_profit = round(t_profit, 2)
+
+            avg_trade_dur = str(timedelta(seconds = round(tot_trade_dur / len(trades), 0)))
+            if num_win > 0:
+                avg_win_trade_dur = str(timedelta(seconds = round(win_trade_dur / num_win, 0)))
+            if num_loss > 0:
+                avg_loss_trade_dur = str(timedelta(seconds = round(loss_trade_dur / num_loss, 0)))
+
+            table.add_row(
+                f"{n}",
+                f"[white]{tag}",
+                f"[green]{num_win}/[red]{num_loss}",
+                f"[yellow]{avg_trade_dur}",
+                f"[green]{avg_win_trade_dur}",
+                f"[red]{avg_loss_trade_dur}",
+                f"[red]{t_profit}" if t_profit <= 0 else f"[green]{t_profit}",
+            )
+
+        summmap[summ] = n
+        summ = chr(ord(summ) + 1)
+
+        if n == tags_config['current_summary']:
+            taglist.append(Rule(title=f"{n}", style=Style(color="blue"), align="left"))
+            taglist.append(table)
+
+    tag_group = Group(*taglist)
+
+    tags_config['summmap'] = summmap
+
+    return Panel(tag_group, title="[b]Enter Tag Summary", border_style="white")
     
+
 def trades_summary(client_dict) -> Table:
     table = Table(expand=True, box=box.HORIZONTALS, show_footer=True)
 
@@ -866,6 +962,9 @@ def main():
     parser.add_argument("-x", "--exclude_charts", action="store_true", help="Do not draw charts, and expand sidebar to whole window. Default: False")
     parser.add_argument("-f", "--include_sysinfo", action="store_true", help="Include system information. If charts are also excluded, this will take up the full right pane. If not, it will replace the profit chart. Default: False")
     parser.add_argument("-k", "--include_candle_info", action="store_true", help="Include 5m candle information. Default: False")
+    parser.add_argument("-o", "--include_tag_summary", action="store_true", help="Include summary of entry tags. Default: False")
+
+    parser.add_argument("--debug", nargs="?", help="Debug mode")
     
     args = parser.parse_args()
     
@@ -959,6 +1058,8 @@ def main():
     if not client_dict:
         raise Exception("No valid clients specified in config or --servers option")
     
+    tags_config['current_summary'] = str(list(client_dict.keys())[0])
+
     chart_config['current_summary'] = str(list(client_dict.keys())[0])
     chart_config['current_timeframe'] = "5m"
     
@@ -968,9 +1069,9 @@ def main():
     pc = bc.BasicCharts(symbol=chart_config['current_pair'], timeframe=chart_config['current_timeframe'], limit=cw)
     
     if args.exclude_charts and args.include_candle_info:
-        layout = make_candle_info_layout(exclude_charts=args.exclude_charts, include_sysinfo=args.include_sysinfo, side_panel_minimum_size=side_panel_minimum_size, num_days_daily=num_days_daily)
+        layout = make_candle_info_layout(exclude_charts=args.exclude_charts, include_sysinfo=args.include_sysinfo, include_tag_summary=args.include_tag_summary, side_panel_minimum_size=side_panel_minimum_size, num_days_daily=num_days_daily)
     else:
-        layout = make_layout(exclude_charts=args.exclude_charts, include_sysinfo=args.include_sysinfo, include_candle_info=args.include_candle_info, side_panel_minimum_size=side_panel_minimum_size, num_days_daily=num_days_daily)
+        layout = make_layout(exclude_charts=args.exclude_charts, include_sysinfo=args.include_sysinfo, include_candle_info=args.include_candle_info, include_tag_summary=args.include_tag_summary, side_panel_minimum_size=side_panel_minimum_size, num_days_daily=num_days_daily)
     
     if not args.exclude_charts:
         layout["chart1"].update(Panel(Status("Loading...", spinner="line")))
@@ -982,6 +1083,9 @@ def main():
     
     if args.include_candle_info:
         layout['candle_info'].update(Panel(Status("Loading...", spinner="line"), title="[b]Candle Information", border_style="cyan"))
+
+    if args.include_tag_summary:
+        layout['tag_summary'].update(Panel(Status("Loading...", spinner="line"), title="[b]Entry Tag Summary", border_style="white"))
     
     layout["open"].update(Panel(Status("Loading...", spinner="line"), title="Open Trades", border_style="green"))
     layout["summary"].update(Panel(Status("Loading...", spinner="line"), title="Trades Summary", border_style="red"))
@@ -995,56 +1099,63 @@ def main():
     update_sec = 5
     updatenum = 0
     
-    with Live(layout, refresh_per_second=0.33, screen=True):
-        if suderp:
-            keyboard.on_press(key_press)
-        
-        while True:
-            try:
-                updatenum = updatenum + 1
-                do_info_panels_update = False
+    if args.debug:
+        # print(get_all_closed_trades(client_dict).items())
+        print("DEBUG MODE")
+    else:
+        with Live(layout, refresh_per_second=0.33, screen=True):
+            if suderp:
+                keyboard.on_press(key_press)
+            
+            while True:
+                try:
+                    updatenum = updatenum + 1
+                    do_info_panels_update = False
 
-                if updatenum / update_sec == 1:
-                    do_info_panels_update = True
-                    updatenum = 0
+                    if updatenum / update_sec == 1:
+                        do_info_panels_update = True
+                        updatenum = 0
+                        
+                    if (do_info_panels_update):
+                        all_closed_trades = get_all_closed_trades(client_dict)
+
+                        ch, cw = get_real_chart_dims(console, header_size, side_panel_minimum_size)
+
+                        layout["summary"].size = 7+len(client_dict.items())
+                        layout["summary"].update(Panel(trades_summary(client_dict), title="Trades Summary", border_style="red", height=7+len(client_dict.items())))
+
+                        layout["daily"].update(Panel(daily_profit_table(client_dict, num_days_daily), title="Daily Profit", border_style="yellow", height=(num_days_daily+6)))
+                        layout["closed"].update(Panel(closed_trades_table(client_dict, all_closed_trades, num_closed_trades), title="Closed Trades", border_style="blue"))
                     
-                if (do_info_panels_update):
-                    all_closed_trades = get_all_closed_trades(client_dict)
+                        if not args.exclude_charts:
+                            spc = pair_chart(pc, height=ch-4, width=cw, limit=cw, timeframe=chart_config['current_timeframe'], basic_symbols=args.basic_symbols)
 
-                    ch, cw = get_real_chart_dims(console, header_size, side_panel_minimum_size)
+                            layout["chart1"].update(Panel(spc[1], title=f"{spc[0]} [{pc.get_timeframe()}]"))
 
-                    layout["summary"].size = 7+len(client_dict.items())
-                    layout["summary"].update(Panel(trades_summary(client_dict), title="Trades Summary", border_style="red", height=7+len(client_dict.items())))
-
-                    layout["daily"].update(Panel(daily_profit_table(client_dict, num_days_daily), title="Daily Profit", border_style="yellow", height=(num_days_daily+6)))
-                    layout["closed"].update(Panel(closed_trades_table(client_dict, all_closed_trades, num_closed_trades), title="Closed Trades", border_style="blue"))
-                
-                    if not args.exclude_charts:
-                        spc = pair_chart(pc, height=ch-4, width=cw, limit=cw, timeframe=chart_config['current_timeframe'], basic_symbols=args.basic_symbols)
-
-                        layout["chart1"].update(Panel(spc[1], title=f"{spc[0]} [{pc.get_timeframe()}]"))
-
-                        if not args.include_sysinfo:
-                            ppc = profit_chart(pc, all_closed_trades[chart_config['current_summary']], height=ch-4, width=cw, basic_symbols=args.basic_symbols)                            
-                            layout["chart2"].update(Panel(ppc, title=f"{chart_config['current_summary']} Cumulative Profit"))
+                            if not args.include_sysinfo:
+                                ppc = profit_chart(pc, all_closed_trades[chart_config['current_summary']], height=ch-4, width=cw, basic_symbols=args.basic_symbols)                            
+                                layout["chart2"].update(Panel(ppc, title=f"{chart_config['current_summary']} Cumulative Profit"))
+                            else:
+                                if args.include_candle_info:
+                                    layout["candle_info"].update(Panel(tradeinfo(client_dict, all_closed_trades, indicators), title="Recent Buy Info", border_style="cyan"))
                         else:
                             if args.include_candle_info:
-                                layout["candle_info"].update(Panel(tradeinfo(client_dict, all_closed_trades, indicators), title="Recent Buy Info", border_style="cyan"))
-                    else:
-                        if args.include_candle_info:
-                            layout["candle_info"].update(Panel(tradeinfo(client_dict, all_closed_trades, indicators), title="[b]Candle Information", border_style="cyan"))                
-                
-                layout["open"].update(Panel(open_trades_table(client_dict), title="Open Trades", border_style="green"))
-                
-                if args.include_sysinfo:
-                    layout["sys_info"].update(sysinfo(client_dict))
-                
-                layout["footer_clock"].update(datetime.now(tz=timezone.utc).ctime().replace(":", "[blink]:[/]") + " UTC")
-                layout["footer_left"].update(f" |[green] OK")
-            except Exception as e:
-                if args.verbose:
-                    traceback.print_exc()
-                layout["footer_left"].update(f" |[red] ERROR: {e}")
+                                layout["candle_info"].update(Panel(tradeinfo(client_dict, all_closed_trades, indicators), title="[b]Candle Information", border_style="cyan"))                
+                    
+                    layout["open"].update(Panel(open_trades_table(client_dict), title="Open Trades", border_style="green"))
+                    
+                    if args.include_sysinfo:
+                        layout["sys_info"].update(sysinfo(client_dict))
+                    
+                    if args.include_tag_summary:
+                        layout['tag_summary'].update(enter_tag_summary(client_dict))
+
+                    layout["footer_clock"].update(datetime.now(tz=timezone.utc).ctime().replace(":", "[blink]:[/]") + " UTC")
+                    layout["footer_left"].update(f" |[green] OK")
+                except Exception as e:
+                    if args.verbose:
+                        traceback.print_exc()
+                    layout["footer_left"].update(f" |[red] ERROR: {e}")
 
 if __name__ == "__main__":
     try:
