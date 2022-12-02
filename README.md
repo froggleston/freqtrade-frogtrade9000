@@ -69,7 +69,7 @@ For simpler TTYs/terminals that cannot display curved symbols, use the `-b` opti
 
 Other options include:
 - exclude the pair and profit charts using the `-x` flag
-- include system information from the system that the bot is running on using `-s` (this requires a freqtrade PR to the REST API that is not merged yet, so this isn't functional)
+- include system information from the system that the bot is running on using `-s`
 - include candle information from open trades (freqtrade REST API provides 5m candles) using `-k`
 
 **Note that your password has to be RFC compliant. You can use alphanumeric characters and `- . _ ~ % ! $ & ' ( ) * + , ; =`**
