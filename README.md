@@ -90,6 +90,7 @@ It uses the Rich library to provide a console view, so there isn't really any de
 - The display flickers on some terminals, e.g. git bash. I can't do anything about that.
 - The exception handling is lame. This needs improvement.
 - A JSON config file would help with more granular bot use and general tool settings, e.g. informative pair as default. I'll get round to this soon.
+- Try setting the remote character set to UTF-8 if you see strange characters and non-functional layouts when using some terminal clients, such as SecureCRT.
 
 ### Acknowledgements
 
