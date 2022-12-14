@@ -134,9 +134,15 @@ def setup_client(name=None, config_path=None, url=None, port=None, username=None
 
     client = ftrc.FtRestClient(server_url, username, password)
     
-    c = client.version()
-    if "detail" in c.keys() and (c["detail"] == 'Unauthorized'):
-        raise Exception(f"Could not connect to bot [{url}:{port}]: Unauthorised")
+    if client is not None:
+        c = client.version()
+        if c is not None:
+            if "detail" in c.keys() and (c["detail"] == 'Unauthorized'):
+                raise Exception(f"Could not connect to bot [{url}:{port}]: Unauthorised")
+        else:
+            raise Exception(f"Could not connect to bot [{url}:{port}]: Check that http://{url}:{port}/api/v1/ping works in a browser, and check any firewall settings.")
+    else:
+        raise Exception(f"Could not connect to bot [{url}:{port}]: Error creating client")
 
     current_config = client.show_config()
     bot_state = current_config['state']
