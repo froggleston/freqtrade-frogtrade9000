@@ -69,7 +69,7 @@ For simpler TTYs/terminals that cannot display curved symbols, use the `-b` opti
 
 Other options include:
 - exclude the pair and profit charts using the `-x` flag
-- include system information from the system that the bot is running on using `-s` (this requires a freqtrade PR to the REST API that is not merged yet, so this isn't functional)
+- include system information from the system that the bot is running on using `-s`
 - include candle information from open trades (freqtrade REST API provides 5m candles) using `-k`
 
 **Note that your password has to be RFC compliant. You can use alphanumeric characters and `- . _ ~ % ! $ & ' ( ) * + , ; =`**
@@ -90,6 +90,7 @@ It uses the Rich library to provide a console view, so there isn't really any de
 - The display flickers on some terminals, e.g. git bash. I can't do anything about that.
 - The exception handling is lame. This needs improvement.
 - A JSON config file would help with more granular bot use and general tool settings, e.g. informative pair as default. I'll get round to this soon.
+- Try setting the remote character set to UTF-8 if you see strange characters and non-functional layouts when using some terminal clients, such as SecureCRT.
 
 ### Acknowledgements
 
