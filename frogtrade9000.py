@@ -889,7 +889,7 @@ def closed_trades_table(client_dict, trades_dict, num_closed_trades) -> Table:
                         f"[red]{t['profit_pct']}" if t['profit_pct'] <= 0 else f"[green]{t['profit_pct']}",
                         f"[red]{rpfta}" if rpfta <= 0 else f"[green]{rpfta}",
                         f"{str(ctime-otime).split('.')[0]}",
-                        f"{t['sell_reason']}"
+                        f"{t['exit_reason']}"
                     )
 
     return table
