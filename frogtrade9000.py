@@ -760,9 +760,9 @@ def open_trades_table(client_dict) -> Table:
         
         trades = cl.status()
         for t in trades:
-            if 'buy_tag' in t.keys():
+            if 'enter_tag' in t.keys():
                 if tradenum == 1:
-                    table.add_column("Buy Tag", justify="right")
+                    table.add_column("Entry Tag", justify="right")
             
             ## force add the UTC time info
             ttime = datetime.strptime(f"{t['open_date']}+00:00", fmt)
@@ -770,7 +770,7 @@ def open_trades_table(client_dict) -> Table:
             pairstr = t['pair'] + ('*' if (t['open_order_id'] is not None and t['close_rate_requested'] is None) else '') + ('**' if (t['close_rate_requested'] is not None) else '')
             t_dir = "S" if t['is_short'] else "L"
 
-            if 'buy_tag' in t.keys():
+            if 'enter_tag' in t.keys():
                 table.add_row(
                     f"{tradenum}",
                     f"{n}",
@@ -780,7 +780,7 @@ def open_trades_table(client_dict) -> Table:
                     f"[red]{round(t['profit_abs'], 2)}" if t['profit_abs'] < 0 else f"[green]{round(t['profit_abs'], 2)}",
                     f"{str(current_time-ttime).split('.')[0]}",
                     f"{t_dir}",
-                    f"{t['buy_tag']}",
+                    f"{t['enter_tag']}",
                 )
             else:
                 table.add_row(
@@ -866,7 +866,7 @@ def closed_trades_table(client_dict, trades_dict, num_closed_trades) -> Table:
     table.add_column("Profit %", justify="right")
     table.add_column("Profit", justify="right")
     table.add_column("Dur.", justify="right")
-    table.add_column("Sell", justify="right")
+    table.add_column("Exit", justify="right")
     
     fmt = "%Y-%m-%d %H:%M:%S"
     
@@ -889,7 +889,7 @@ def closed_trades_table(client_dict, trades_dict, num_closed_trades) -> Table:
                         f"[red]{t['profit_pct']}" if t['profit_pct'] <= 0 else f"[green]{t['profit_pct']}",
                         f"[red]{rpfta}" if rpfta <= 0 else f"[green]{rpfta}",
                         f"{str(ctime-otime).split('.')[0]}",
-                        f"{t['sell_reason']}"
+                        f"{t['exit_reason']}"
                     )
 
     return table
@@ -1143,7 +1143,7 @@ def main():
                                 layout["chart2"].update(Panel(ppc, title=f"{chart_config['current_summary']} Cumulative Profit"))
                             else:
                                 if args.include_candle_info:
-                                    layout["candle_info"].update(Panel(tradeinfo(client_dict, all_closed_trades, indicators), title="Recent Buy Info", border_style="cyan"))
+                                    layout["candle_info"].update(Panel(tradeinfo(client_dict, all_closed_trades, indicators), title="Recent Entry Info", border_style="cyan"))
                         else:
                             if args.include_candle_info:
                                 layout["candle_info"].update(Panel(tradeinfo(client_dict, all_closed_trades, indicators), title="[b]Candle Information", border_style="cyan"))                
