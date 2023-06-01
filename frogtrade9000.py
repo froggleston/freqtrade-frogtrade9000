@@ -327,7 +327,7 @@ def calc_risk(client):
     if max_open_trades > 0:
         max_capit = 0
         if stake_amount != "unlimited":
-            max_capit = float(stake_amount * max_open_trades)
+            max_capit = float(stake_amount) * max_open_trades
         else:
             max_capit = float(avail_bal / max_open_trades)
 
