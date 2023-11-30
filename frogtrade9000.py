@@ -767,7 +767,7 @@ def open_trades_table(client_dict) -> Table:
             ## force add the UTC time info
             ttime = datetime.strptime(f"{t['open_date']}+00:00", fmt)
             
-            pairstr = t['pair'] + ('*' if (t['open_order_id'] is not None and t['close_rate_requested'] is None) else '') + ('**' if (t['close_rate_requested'] is not None) else '')
+            pairstr = t['pair'] + ('*' if (t['has_open_orders'] and t['close_rate_requested'] is None) else '') + ('**' if (t['close_rate_requested'] is not None) else '')
             t_dir = "S" if t['is_short'] else "L"
 
             if 'enter_tag' in t.keys():
