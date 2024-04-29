@@ -1,3 +1,7 @@
+# This project is no longer under active development.
+
+## Please move over to the new formal successor to frogtrade9000, [FTUI](https://github.com/freqtrade/ftui)
+
 # frogtrade9000 - a command-line Rich client for the freqtrade REST API
 
 I found FreqUI too cumbersome and slow on my Raspberry Pi 400 when running multiple instances of freqtrade bots. So I came up with a python Rich client:
